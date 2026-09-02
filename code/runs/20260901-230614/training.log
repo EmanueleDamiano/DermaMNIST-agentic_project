@@ -1,0 +1,9 @@
+[23:06:14] run 20260901-230614 | device=mps
+[23:06:14] config: {"epochs": 3, "lr": 0.0003, "batch_size": 64, "input_size": 224, "augmentation": "none", "class_weighting": "balanced", "normalization": "imagenet", "pretrained": true, "freeze_backbone": false, "seed": 42, "max_train_batches": null, "save_weights": true, "notes": "modello per inferenza"}
+[23:06:14] ResNet-18 | parametri addestrabili 11,180,103 su 11,180,103
+[23:07:05] epoca 1/3 | loss=1.3695 | val acc=0.6361 bal_acc=0.5321 macro_F1=0.4144 AUC=0.8929 recall_mel=0.4324 | 50.7s
+[23:07:57] epoca 2/3 | loss=1.0576 | val acc=0.5593 bal_acc=0.5983 macro_F1=0.4305 AUC=0.9102 recall_mel=0.7838 | 52.0s
+[23:08:49] epoca 3/3 | loss=0.8811 | val acc=0.6770 bal_acc=0.6023 macro_F1=0.5323 AUC=0.9256 recall_mel=0.7568 | 51.8s
+[23:08:49] modello selezionato: epoca 3 (val bal_acc=0.6023)
+[23:08:53] test acc=0.6653 bal_acc=0.6025 macro_F1=0.4906 AUC=0.9220 recall_mel=0.6816
+[23:08:53] run completato in 158.5s -> /Users/emanuele/Desktop/esame agentic dottorato/DermaMNIST-agentic_project/DermaMNIST-agentic_project/code/runs/20260901-230614

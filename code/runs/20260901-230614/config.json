@@ -1,0 +1,15 @@
+{
+  "epochs": 3,
+  "lr": 0.0003,
+  "batch_size": 64,
+  "input_size": 224,
+  "augmentation": "none",
+  "class_weighting": "balanced",
+  "normalization": "imagenet",
+  "pretrained": true,
+  "freeze_backbone": false,
+  "seed": 42,
+  "max_train_batches": null,
+  "save_weights": true,
+  "notes": "modello per inferenza"
+}
