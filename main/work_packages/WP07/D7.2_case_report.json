@@ -1,0 +1,51 @@
+{
+  "deliverable": "D7.2",
+  "created_at": "2026-09-03T11:56:35+00:00",
+  "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
+  "sample_id": "input-e460d08e01fa",
+  "research_only_notice": "Research benchmark output only; not a diagnosis or treatment recommendation.",
+  "model_evidence": {
+    "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
+    "sample_id": "input-e460d08e01fa",
+    "model_name": "convnext_tiny_28",
+    "model_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+    "predicted_class_id": 2,
+    "predicted_class": "benign keratosis-like lesions",
+    "probabilities": {
+      "actinic keratoses and intraepithelial carcinoma": 0.12727166712284088,
+      "basal cell carcinoma": 0.1014174222946167,
+      "benign keratosis-like lesions": 0.24957042932510376,
+      "dermatofibroma": 0.061778079718351364,
+      "melanoma": 0.2141290307044983,
+      "melanocytic nevi": 0.22356168925762177,
+      "vascular lesions": 0.022271757945418358
+    },
+    "confidence": 0.24957042932510376,
+    "uncertainty_threshold": 0.5071702688932419,
+    "uncertain": true
+  },
+  "xai_evidence": {
+    "deliverable": "D5.3",
+    "created_at": "2026-09-03T11:56:35+00:00",
+    "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
+    "method": "absolute_input_gradient",
+    "target_class": 2,
+    "model_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+    "array_file": "work_packages/WP05/attribution.npy",
+    "overlay_file": "work_packages/WP05/attribution_overlay.png",
+    "minimum": 0.0,
+    "maximum": 1.0,
+    "interpretation": "Coarse evidence of input sensitivity at 28×28; not a lesion boundary or clinical localization."
+  },
+  "cited_class_information": {
+    "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+    "citations": [
+      {
+        "title": "MedMNIST: DermaMNIST dataset definition",
+        "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
+      }
+    ]
+  },
+  "explanation": "Predicted class: benign keratosis-like lesions. Confidence: 0.250. Uncertainty: flagged. The attribution image shows input sensitivity. Class information: Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+  "unsupported_statements_omitted": true
+}

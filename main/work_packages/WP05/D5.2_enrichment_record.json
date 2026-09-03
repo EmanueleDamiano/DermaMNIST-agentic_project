@@ -1,0 +1,15 @@
+{
+  "deliverable": "D5.2",
+  "created_at": "2026-09-03T11:56:35+00:00",
+  "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
+  "predicted_class_id": 2,
+  "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+  "citations": [
+    {
+      "title": "MedMNIST: DermaMNIST dataset definition",
+      "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
+    }
+  ],
+  "classifier_mutation": false,
+  "source_policy": "work_packages/WP05/D5.1_source_policy_and_output_schema.json"
+}

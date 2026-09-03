@@ -1,0 +1,28 @@
+{
+  "deliverable": "D4.1",
+  "status": "approved_before_selection",
+  "metric_version": "metrics-v1",
+  "primary_metric": "macro_f1",
+  "tie_breakers": [
+    "balanced_accuracy",
+    "macro_auroc",
+    "accuracy"
+  ],
+  "calibration_method": "validation_temperature_scaling",
+  "calibration_bins": 10,
+  "uncertainty_method": "validation_error_f1_threshold",
+  "failure_case_limit": 25,
+  "robustness_checks": [
+    "horizontal_flip",
+    "brightness_minus_10_percent",
+    "brightness_plus_10_percent"
+  ],
+  "metric_definitions": {
+    "macro_f1": "unweighted mean of seven class F1 values",
+    "balanced_accuracy": "unweighted mean class recall",
+    "macro_auroc": "unweighted mean one-vs-rest rank AUROC",
+    "ece": "10-bin confidence/accuracy gap",
+    "brier": "mean seven-class squared probability error",
+    "nll": "mean negative log probability of true class"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "deliverable": "D5.3",
+  "created_at": "2026-09-03T11:56:35+00:00",
+  "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
+  "method": "absolute_input_gradient",
+  "target_class": 2,
+  "model_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+  "array_file": "work_packages/WP05/attribution.npy",
+  "overlay_file": "work_packages/WP05/attribution_overlay.png",
+  "minimum": 0.0,
+  "maximum": 1.0,
+  "interpretation": "Coarse evidence of input sensitivity at 28×28; not a lesion boundary or clinical localization."
+}

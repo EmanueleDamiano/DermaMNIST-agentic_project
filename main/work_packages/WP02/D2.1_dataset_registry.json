@@ -1,0 +1,58 @@
+{
+  "deliverable": "D2.1",
+  "created_at": "2026-09-03T11:50:33+00:00",
+  "dataset_id": "dermamnist-v2-28",
+  "source_url": "https://zenodo.org/records/10519652/files/dermamnist.npz?download=1",
+  "license": "CC BY-NC 4.0",
+  "file": "data/dermamnist.npz",
+  "file_md5": "0744692d530f8e62ec473284d019b0c7",
+  "file_sha256": "1a309fec2e33bb6aba88e7d078e5ccbb9736c84a0b415ac197eb3c8fa331e050",
+  "sample_count": 10015,
+  "expected_sample_count": 10015,
+  "shape": [
+    28,
+    28,
+    3
+  ],
+  "split_counts": {
+    "train": 7007,
+    "val": 1003,
+    "test": 2005
+  },
+  "class_counts": {
+    "train": {
+      "0": 228,
+      "1": 359,
+      "2": 769,
+      "3": 80,
+      "4": 779,
+      "5": 4693,
+      "6": 99
+    },
+    "val": {
+      "0": 33,
+      "1": 52,
+      "2": 110,
+      "3": 12,
+      "4": 111,
+      "5": 671,
+      "6": 14
+    },
+    "test": {
+      "0": 66,
+      "1": 103,
+      "2": 220,
+      "3": 23,
+      "4": 223,
+      "5": 1341,
+      "6": 29
+    }
+  },
+  "split_checksums": {
+    "train": "9828c987d7676e4be769da377fc3c15d7bf7112a99401d010e2a6d764bd15d89",
+    "val": "0869b5c0753e12df49232c96e27be6661e9db7c50bf7f49a65c756fd748fddfd",
+    "test": "9d3b6ebf9ebe88d9df49bcea7c87d9e0b663b3b64b94faa10c4b40762633fd06"
+  },
+  "sample_id_policy": "{split}-{zero-padded index within official split}",
+  "status": "verified"
+}

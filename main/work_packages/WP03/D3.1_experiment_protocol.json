@@ -1,0 +1,33 @@
+{
+  "deliverable": "D3.1",
+  "status": "approved",
+  "models": [
+    "resnet18_28",
+    "efficientnet_b0_28",
+    "convnext_tiny_28"
+  ],
+  "shared_controls": {
+    "seed": 42,
+    "batch_size": 128,
+    "default_max_epochs": 3,
+    "default_target_accuracy": 0.7,
+    "learning_rate": 0.003,
+    "weight_decay": 0.0001,
+    "loss": "class_weighted_cross_entropy",
+    "augmentation": [
+      "horizontal_flip",
+      "vertical_flip",
+      "quarter_rotation"
+    ]
+  },
+  "selection": {
+    "split": "official validation",
+    "primary": "macro_f1",
+    "tie_breakers": [
+      "balanced_accuracy",
+      "macro_auroc",
+      "accuracy"
+    ]
+  },
+  "architecture_note": "Family-specific compact versions are sized for 28×28 inputs and CPU execution; they are not ImageNet-size parameter replicas."
+}

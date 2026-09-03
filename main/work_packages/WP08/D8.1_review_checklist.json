@@ -1,0 +1,48 @@
+{
+  "deliverable": "D8.1",
+  "created_at": "2026-09-03T11:54:11+00:00",
+  "checks": [
+    {
+      "id": "A1",
+      "status": "pass",
+      "evidence": "Dataset identity, integrity findings, and parallel leakage-aware policy recorded."
+    },
+    {
+      "id": "A2",
+      "status": "pass",
+      "evidence": "Agent1, Agent2, and Agent3 logged only allowed actions."
+    },
+    {
+      "id": "A3",
+      "status": "pass",
+      "evidence": "Selection rule and model checksum verified."
+    },
+    {
+      "id": "A4",
+      "status": "pass",
+      "evidence": "Aggregate, class-balanced, per-class, calibration, and confusion evidence present."
+    },
+    {
+      "id": "A5",
+      "status": "pass",
+      "evidence": "Final test used the saved model and no retraining is recorded."
+    },
+    {
+      "id": "A6",
+      "status": "pass",
+      "evidence": "Prediction, XAI, and approved sources share one trace."
+    },
+    {
+      "id": "A7",
+      "status": "pass",
+      "evidence": "Unseen benchmark case produced all declared outputs."
+    },
+    {
+      "id": "A8",
+      "status": "pass",
+      "evidence": "No critical findings remain open."
+    }
+  ],
+  "findings": [],
+  "critical_open": 0
+}

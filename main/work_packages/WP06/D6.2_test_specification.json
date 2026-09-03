@@ -1,0 +1,27 @@
+{
+  "deliverable": "D6.2",
+  "status": "approved_before_test",
+  "test_set": "official DermaMNIST test split",
+  "mandatory_metrics": [
+    "accuracy",
+    "macro_f1",
+    "balanced_accuracy",
+    "macro_auroc",
+    "per-class precision/recall/F1/AUROC",
+    "confusion matrix",
+    "ECE",
+    "Brier score",
+    "NLL"
+  ],
+  "robustness": [
+    "horizontal_flip",
+    "brightness_minus_10_percent",
+    "brightness_plus_10_percent"
+  ],
+  "failure_rules": [
+    "checksum mismatch blocks testing",
+    "no post-test tuning",
+    "critical evidence gap blocks acceptance"
+  ],
+  "output_format": "versioned JSON plus PNG plots"
+}

@@ -1,0 +1,27 @@
+{
+  "deliverable": "D3.2",
+  "status": "approved",
+  "agent": "Agent1",
+  "specification": [
+    "Train the three classifier candidates",
+    [
+      "train_candidate",
+      "write_experiment_record"
+    ],
+    "Cannot access final test labels"
+  ],
+  "input_schema": [
+    "training images/labels",
+    "validation images/labels",
+    "model names",
+    "training settings"
+  ],
+  "output_schema": [
+    "run ID",
+    "history",
+    "checkpoint",
+    "checksum",
+    "status/failure reason"
+  ],
+  "test_access": "none"
+}

@@ -1,0 +1,85 @@
+{
+  "project": {
+    "name": "DermaAgent",
+    "version": "1.0.0",
+    "purpose": "Reproducible, leakage-aware, multi-agent DermaMNIST research prototype",
+    "scope": "Seven-class 28x28 RGB dermoscopic image classification for research and education only",
+    "code_version": "1.0.0"
+  },
+  "data": {
+    "dataset_id": "dermamnist-v2-28",
+    "url": "https://zenodo.org/records/10519652/files/dermamnist.npz?download=1",
+    "md5": "0744692d530f8e62ec473284d019b0c7",
+    "license": "CC BY-NC 4.0",
+    "expected_shape": [28, 28, 3],
+    "expected_splits": {"train": 7007, "val": 1003, "test": 2005},
+    "labels": {
+      "0": "actinic keratoses and intraepithelial carcinoma",
+      "1": "basal cell carcinoma",
+      "2": "benign keratosis-like lesions",
+      "3": "dermatofibroma",
+      "4": "melanoma",
+      "5": "melanocytic nevi",
+      "6": "vascular lesions"
+    }
+  },
+  "training": {
+    "seed": 42,
+    "batch_size": 128,
+    "default_max_epochs": 3,
+    "default_target_accuracy": 0.70,
+    "learning_rate": 0.003,
+    "weight_decay": 0.0001,
+    "early_stopping_patience": 2,
+    "loss": "class_weighted_cross_entropy",
+    "augmentation": ["horizontal_flip", "vertical_flip", "quarter_rotation"],
+    "models": ["resnet18_28", "efficientnet_b0_28", "convnext_tiny_28"]
+  },
+  "evaluation": {
+    "metric_version": "metrics-v1",
+    "primary_metric": "macro_f1",
+    "tie_breakers": ["balanced_accuracy", "macro_auroc", "accuracy"],
+    "calibration_method": "validation_temperature_scaling",
+    "calibration_bins": 10,
+    "uncertainty_method": "validation_error_f1_threshold",
+    "failure_case_limit": 25,
+    "robustness_checks": ["horizontal_flip", "brightness_minus_10_percent", "brightness_plus_10_percent"]
+  },
+  "sources": {
+    "dataset": {
+      "title": "MedMNIST official DermaMNIST definition",
+      "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
+    },
+    "0": {
+      "fact": "This benchmark category combines actinic keratoses and intraepithelial carcinoma; it is a dataset label, not a diagnosis.",
+      "citations": [
+        {"title": "DermNet: Actinic keratosis", "url": "https://dermnetnz.org/topics/actinic-keratosis"},
+        {"title": "DermNet: Intraepidermal squamous cell carcinoma", "url": "https://dermnetnz.org/topics/intraepidermal-squamous-cell-carcinoma"}
+      ]
+    },
+    "1": {
+      "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer; classifier output requires professional assessment and is not a diagnosis.",
+      "citations": [{"title": "DermNet: Basal cell carcinoma", "url": "https://dermnetnz.org/topics/basal-cell-carcinoma"}]
+    },
+    "2": {
+      "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+      "citations": [{"title": "MedMNIST: DermaMNIST dataset definition", "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"}]
+    },
+    "3": {
+      "fact": "Dermatofibroma is a common benign fibrous skin nodule; this benchmark prediction is not a clinical diagnosis.",
+      "citations": [{"title": "DermNet: Dermatofibroma", "url": "https://dermnetnz.org/topics/dermatofibroma"}]
+    },
+    "4": {
+      "fact": "Melanoma is a malignant tumour of melanocytes; suspected lesions require assessment by a qualified clinician.",
+      "citations": [{"title": "DermNet: Melanoma", "url": "https://dermnetnz.org/topics/melanoma"}]
+    },
+    "5": {
+      "fact": "A melanocytic naevus is a benign proliferation of melanocytes; the benchmark category is not a clinical conclusion.",
+      "citations": [{"title": "DermNet: Melanocytic naevus", "url": "https://dermnetnz.org/topics/melanocytic-naevus"}]
+    },
+    "6": {
+      "fact": "Vascular skin lesions comprise multiple conditions involving blood or lymphatic vessels; this grouped output needs clinical context.",
+      "citations": [{"title": "DermNet: Vascular proliferations and abnormalities", "url": "https://dermnetnz.org/topics/vascular-proliferations-and-abnormalities-of-blood-vessels"}]
+    }
+  }
+}

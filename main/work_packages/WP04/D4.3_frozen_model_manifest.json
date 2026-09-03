@@ -1,0 +1,167 @@
+{
+  "deliverable": "D4.3",
+  "frozen_at": "2026-09-03T11:54:07+00:00",
+  "selection_report": "work_packages/WP04/D4.2_evaluation_and_selection_report.json",
+  "model_name": "convnext_tiny_28",
+  "run_id": "run-convnext_tiny_28-42",
+  "model_file": "model/model.pt",
+  "model_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+  "source_checkpoint_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+  "temperature": 0.9658240648664589,
+  "uncertainty_threshold": 0.5071702688932419,
+  "normalization_mean": [
+    0.7631127033189514,
+    0.5380881751939827,
+    0.5613881416749181
+  ],
+  "normalization_std": [
+    0.1366051260710805,
+    0.15425382682770297,
+    0.16921601147293114
+  ],
+  "validation_metrics": {
+    "sample_count": 1003,
+    "accuracy": 0.5064805583250249,
+    "macro_f1": 0.3722850392629816,
+    "balanced_accuracy": 0.4187870687870688,
+    "macro_auroc": 0.8687223252042625,
+    "expected_calibration_error": 0.10838598666614219,
+    "brier_score": 0.5862801144399146,
+    "negative_log_likelihood": 1.2978647947311401,
+    "confusion_matrix": [
+      [
+        16,
+        2,
+        14,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        19,
+        17,
+        14,
+        1,
+        1,
+        0,
+        0
+      ],
+      [
+        17,
+        3,
+        82,
+        2,
+        2,
+        4,
+        0
+      ],
+      [
+        6,
+        3,
+        1,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        5,
+        0,
+        72,
+        1,
+        18,
+        15,
+        0
+      ],
+      [
+        28,
+        7,
+        214,
+        12,
+        42,
+        366,
+        2
+      ],
+      [
+        1,
+        4,
+        1,
+        0,
+        0,
+        1,
+        7
+      ]
+    ],
+    "per_class": [
+      {
+        "class_id": 0,
+        "support": 33,
+        "precision": 0.17391304347826086,
+        "recall": 0.48484848484848486,
+        "f1": 0.256,
+        "auroc": 0.8990627928772259,
+        "class_name": "actinic keratoses and intraepithelial carcinoma"
+      },
+      {
+        "class_id": 1,
+        "support": 52,
+        "precision": 0.4722222222222222,
+        "recall": 0.3269230769230769,
+        "f1": 0.38636363636363635,
+        "auroc": 0.9054032192833454,
+        "class_name": "basal cell carcinoma"
+      },
+      {
+        "class_id": 2,
+        "support": 110,
+        "precision": 0.20603015075376885,
+        "recall": 0.7454545454545455,
+        "f1": 0.3228346456692914,
+        "auroc": 0.768461773388985,
+        "class_name": "benign keratosis-like lesions"
+      },
+      {
+        "class_id": 3,
+        "support": 12,
+        "precision": 0.1111111111111111,
+        "recall": 0.16666666666666666,
+        "f1": 0.13333333333333333,
+        "auroc": 0.9218802556340396,
+        "class_name": "dermatofibroma"
+      },
+      {
+        "class_id": 4,
+        "support": 111,
+        "precision": 0.2857142857142857,
+        "recall": 0.16216216216216217,
+        "f1": 0.20689655172413793,
+        "auroc": 0.800064638629661,
+        "class_name": "melanoma"
+      },
+      {
+        "class_id": 5,
+        "support": 671,
+        "precision": 0.9457364341085271,
+        "recall": 0.5454545454545454,
+        "f1": 0.6918714555765596,
+        "auroc": 0.8406397572405868,
+        "class_name": "melanocytic nevi"
+      },
+      {
+        "class_id": 6,
+        "support": 14,
+        "precision": 0.7777777777777778,
+        "recall": 0.5,
+        "f1": 0.6086956521739131,
+        "auroc": 0.9455438393759931,
+        "class_name": "vascular lesions"
+      }
+    ]
+  },
+  "dataset_id": "dermamnist-v2-28",
+  "preprocessing_id": "preprocess-v1",
+  "metric_version": "metrics-v1",
+  "code_version": "1.0.0",
+  "post_test_tuning_allowed": false
+}

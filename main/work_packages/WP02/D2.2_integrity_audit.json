@@ -1,0 +1,375 @@
+{
+  "deliverable": "D2.2",
+  "created_at": "2026-09-03T11:50:33+00:00",
+  "grain": "one record per official 28x28 DermaMNIST image",
+  "intended_use": "benchmark training, model selection, and final testing",
+  "checks": {
+    "completeness": {
+      "status": "pass",
+      "actual": 10015,
+      "expected": 10015
+    },
+    "shape_validity": {
+      "status": "pass",
+      "invalid_records": 0
+    },
+    "label_validity": {
+      "status": "pass",
+      "invalid_records": 0
+    },
+    "exact_duplicates": {
+      "status": "finding",
+      "cluster_count": 2,
+      "affected_records": 4,
+      "shown_clusters": [
+        [
+          {
+            "sample_id": "train-02815",
+            "split": "train",
+            "label": 5,
+            "sha256": "f15c06e1c911c104bb55eb20133dc642da9f203dd7d0ae74e8661bf4b085e1b3",
+            "perceptual_hash": "f1f1f1f171f1705a"
+          },
+          {
+            "sample_id": "train-06521",
+            "split": "train",
+            "label": 5,
+            "sha256": "f15c06e1c911c104bb55eb20133dc642da9f203dd7d0ae74e8661bf4b085e1b3",
+            "perceptual_hash": "f1f1f1f171f1705a"
+          }
+        ],
+        [
+          {
+            "sample_id": "val-00542",
+            "split": "val",
+            "label": 5,
+            "sha256": "92d7bf6ec3a3039f61251c2b73e8ce880b886f87d0677415e8d6db718f56ee9e",
+            "perceptual_hash": "c4c082c0809084c6"
+          },
+          {
+            "sample_id": "val-00696",
+            "split": "val",
+            "label": 5,
+            "sha256": "92d7bf6ec3a3039f61251c2b73e8ce880b886f87d0677415e8d6db718f56ee9e",
+            "perceptual_hash": "c4c082c0809084c6"
+          }
+        ]
+      ],
+      "shown_cluster_limit": 100,
+      "truncated": false
+    },
+    "cross_split_exact_leakage": {
+      "status": "pass",
+      "severity": "none",
+      "cluster_count": 0,
+      "affected_records": 0,
+      "shown_clusters": [],
+      "shown_cluster_limit": 100,
+      "truncated": false
+    },
+    "perceptual_hash_candidates": {
+      "status": "review",
+      "note": "Identical 64-bit difference hashes are candidates, not proof of duplication.",
+      "cluster_count": 9,
+      "affected_records": 21,
+      "shown_clusters": [
+        [
+          {
+            "sample_id": "train-00910",
+            "split": "train",
+            "label": 5,
+            "sha256": "40c62fb2ec6bb77c6870d039fa7a6da295baf008f21157125f4cdfb94a513bf0",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          },
+          {
+            "sample_id": "train-04181",
+            "split": "train",
+            "label": 2,
+            "sha256": "851e0b8527f96ab9e42dc77ec18f6e98a794ea97e7d3a28d38859ada43604cb7",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          },
+          {
+            "sample_id": "val-00474",
+            "split": "val",
+            "label": 5,
+            "sha256": "7e7ee47f73219c3152f800d3bf7c2d897bdfecd3c5d7812ede63027d84f4726a",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-02006",
+            "split": "train",
+            "label": 5,
+            "sha256": "bf33c37c3a16985c68478d1d1408cd00ea871baad922bf2af8b793269ea8aaf8",
+            "perceptual_hash": "0f0f173333330f07"
+          },
+          {
+            "sample_id": "train-02509",
+            "split": "train",
+            "label": 6,
+            "sha256": "83a7b789a1701408660c447d3ad08961582742f0c7456ecd92076500798363c6",
+            "perceptual_hash": "0f0f173333330f07"
+          },
+          {
+            "sample_id": "test-01628",
+            "split": "test",
+            "label": 5,
+            "sha256": "dd7458eae9d77ffcb98a250bb8611750da937e28236dff150e2a900cb4aadb90",
+            "perceptual_hash": "0f0f173333330f07"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-02333",
+            "split": "train",
+            "label": 5,
+            "sha256": "bb74aa54460677f32631a3b8471ec1ed31062f4aff25aca7bd97050cb7490a07",
+            "perceptual_hash": "f0f07056e6b4f4f0"
+          },
+          {
+            "sample_id": "train-04368",
+            "split": "train",
+            "label": 5,
+            "sha256": "a0cf0f2d425a2ed496d5fce4f51d8d3ca4f098adb968a15db368748acb0cf051",
+            "perceptual_hash": "f0f07056e6b4f4f0"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-03205",
+            "split": "train",
+            "label": 2,
+            "sha256": "f96dd307bc42c309f13bee0d83c46d3be35531c506f1ca39f7f1c0063fce7727",
+            "perceptual_hash": "0f0f0f13130f0f0f"
+          },
+          {
+            "sample_id": "train-05361",
+            "split": "train",
+            "label": 4,
+            "sha256": "87dee9ea80ed04a1e701f480cb9e9d5fa6e847b305cdea144cb69cbc2f1abf41",
+            "perceptual_hash": "0f0f0f13130f0f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-03933",
+            "split": "train",
+            "label": 5,
+            "sha256": "600cf4108acfb4e00ad25d6e028fae41a7bf3f54f7052062d2f6a1e4c533a905",
+            "perceptual_hash": "78f0f0a8ecd8d4e4"
+          },
+          {
+            "sample_id": "test-01767",
+            "split": "test",
+            "label": 5,
+            "sha256": "87e3ebf6579665dd6fcea238659507394609e4a98f4e5fc53907bc018fb7b470",
+            "perceptual_hash": "78f0f0a8ecd8d4e4"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-04547",
+            "split": "train",
+            "label": 5,
+            "sha256": "8f29df7536834eb56aa736908a65601e0bd15dcbb80015df7219d150b9b9e500",
+            "perceptual_hash": "0f0f1f3333170f0f"
+          },
+          {
+            "sample_id": "train-05020",
+            "split": "train",
+            "label": 5,
+            "sha256": "20c8f43b00398c7b419bfa8d073768a00b77bb494eb356d77f8a6a478af06b5e",
+            "perceptual_hash": "0f0f1f3333170f0f"
+          },
+          {
+            "sample_id": "train-05835",
+            "split": "train",
+            "label": 4,
+            "sha256": "a30f2beb547d3b65a06a01ceaf71b55dff357fe84b6407bc9875edc57ff8df4b",
+            "perceptual_hash": "0f0f1f3333170f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-05021",
+            "split": "train",
+            "label": 5,
+            "sha256": "c95bddb5c97f52f9b600e8b7f59f675925c2e3736af9071b68f812896fdf4367",
+            "perceptual_hash": "0f1f7363771f0f0f"
+          },
+          {
+            "sample_id": "test-00919",
+            "split": "test",
+            "label": 5,
+            "sha256": "2ac950cdeb41f2a588a91c2bbab2a303cfab944931e81f2a452763f5ceb6776f",
+            "perceptual_hash": "0f1f7363771f0f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-06232",
+            "split": "train",
+            "label": 5,
+            "sha256": "1e47d88ef8dd7f5d5ebff33d440661f5d6340d413822a02f7e5b27650c16221f",
+            "perceptual_hash": "0f1f0f33330f0707"
+          },
+          {
+            "sample_id": "val-00575",
+            "split": "val",
+            "label": 5,
+            "sha256": "111a9432b9048fc1c0865cc6a666093241e0ea8934deec9a0cdbc0d7350387c4",
+            "perceptual_hash": "0f1f0f33330f0707"
+          }
+        ],
+        [
+          {
+            "sample_id": "test-00582",
+            "split": "test",
+            "label": 5,
+            "sha256": "cabdafba80668c8aa36e48787b0329823f783e5767e613c690dd534d9cc150c5",
+            "perceptual_hash": "170f3733330f0f0f"
+          },
+          {
+            "sample_id": "test-00622",
+            "split": "test",
+            "label": 5,
+            "sha256": "9a6704ef475e60e0882a60c60ba8c46a1fbc1422418b23ae18f10db866c5bc12",
+            "perceptual_hash": "170f3733330f0f0f"
+          }
+        ]
+      ],
+      "shown_cluster_limit": 100,
+      "truncated": false
+    },
+    "cross_split_perceptual_candidates": {
+      "status": "review",
+      "cluster_count": 5,
+      "affected_records": 12,
+      "shown_clusters": [
+        [
+          {
+            "sample_id": "train-00910",
+            "split": "train",
+            "label": 5,
+            "sha256": "40c62fb2ec6bb77c6870d039fa7a6da295baf008f21157125f4cdfb94a513bf0",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          },
+          {
+            "sample_id": "train-04181",
+            "split": "train",
+            "label": 2,
+            "sha256": "851e0b8527f96ab9e42dc77ec18f6e98a794ea97e7d3a28d38859ada43604cb7",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          },
+          {
+            "sample_id": "val-00474",
+            "split": "val",
+            "label": 5,
+            "sha256": "7e7ee47f73219c3152f800d3bf7c2d897bdfecd3c5d7812ede63027d84f4726a",
+            "perceptual_hash": "0f0f0f33330f0f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-02006",
+            "split": "train",
+            "label": 5,
+            "sha256": "bf33c37c3a16985c68478d1d1408cd00ea871baad922bf2af8b793269ea8aaf8",
+            "perceptual_hash": "0f0f173333330f07"
+          },
+          {
+            "sample_id": "train-02509",
+            "split": "train",
+            "label": 6,
+            "sha256": "83a7b789a1701408660c447d3ad08961582742f0c7456ecd92076500798363c6",
+            "perceptual_hash": "0f0f173333330f07"
+          },
+          {
+            "sample_id": "test-01628",
+            "split": "test",
+            "label": 5,
+            "sha256": "dd7458eae9d77ffcb98a250bb8611750da937e28236dff150e2a900cb4aadb90",
+            "perceptual_hash": "0f0f173333330f07"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-03933",
+            "split": "train",
+            "label": 5,
+            "sha256": "600cf4108acfb4e00ad25d6e028fae41a7bf3f54f7052062d2f6a1e4c533a905",
+            "perceptual_hash": "78f0f0a8ecd8d4e4"
+          },
+          {
+            "sample_id": "test-01767",
+            "split": "test",
+            "label": 5,
+            "sha256": "87e3ebf6579665dd6fcea238659507394609e4a98f4e5fc53907bc018fb7b470",
+            "perceptual_hash": "78f0f0a8ecd8d4e4"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-05021",
+            "split": "train",
+            "label": 5,
+            "sha256": "c95bddb5c97f52f9b600e8b7f59f675925c2e3736af9071b68f812896fdf4367",
+            "perceptual_hash": "0f1f7363771f0f0f"
+          },
+          {
+            "sample_id": "test-00919",
+            "split": "test",
+            "label": 5,
+            "sha256": "2ac950cdeb41f2a588a91c2bbab2a303cfab944931e81f2a452763f5ceb6776f",
+            "perceptual_hash": "0f1f7363771f0f0f"
+          }
+        ],
+        [
+          {
+            "sample_id": "train-06232",
+            "split": "train",
+            "label": 5,
+            "sha256": "1e47d88ef8dd7f5d5ebff33d440661f5d6340d413822a02f7e5b27650c16221f",
+            "perceptual_hash": "0f1f0f33330f0707"
+          },
+          {
+            "sample_id": "val-00575",
+            "split": "val",
+            "label": 5,
+            "sha256": "111a9432b9048fc1c0865cc6a666093241e0ea8934deec9a0cdbc0d7350387c4",
+            "perceptual_hash": "0f1f0f33330f0707"
+          }
+        ]
+      ],
+      "shown_cluster_limit": 100,
+      "truncated": false
+    },
+    "exact_duplicate_label_conflicts": {
+      "status": "pass",
+      "cluster_count": 0,
+      "affected_records": 0,
+      "shown_clusters": [],
+      "shown_cluster_limit": 100,
+      "truncated": false
+    }
+  },
+  "test_exact_leakage_indices": [],
+  "test_exact_leakage_rate": 0.0,
+  "test_perceptual_overlap_indices": [
+    919,
+    1628,
+    1767
+  ],
+  "test_perceptual_overlap_rate": 0.0014962593516209476,
+  "policy": {
+    "official": "Keep official splits unchanged for benchmark comparability.",
+    "leakage_aware": "Also report test metrics after excluding exact test-image bytes present in train or validation.",
+    "near_duplicates": "Retain difference-hash candidates because hash equality alone is not sufficient proof; report them for review.",
+    "candidate_sensitivity": "Also report test metrics after excluding identical perceptual hashes across splits, labeled as sensitivity analysis rather than confirmed leakage.",
+    "training_control": "No test image or label is used for training, calibration, uncertainty selection, or model choice."
+  },
+  "impact": "Cross-split overlap can inflate benchmark estimates; parallel leakage-aware metrics make the impact visible.",
+  "temporal_checks": "Not applicable: this static benchmark has no event or acquisition timestamp in the NPZ distribution.",
+  "status": "accepted_with_documented_controls"
+}
