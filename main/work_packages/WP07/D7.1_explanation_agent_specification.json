@@ -1,0 +1,29 @@
+{
+  "deliverable": "D7.1",
+  "status": "approved",
+  "agent": "Agent3",
+  "specification": [
+    "Create class information, attribution, output, and review records",
+    [
+      "retrieve_approved_fact",
+      "compose_case_report",
+      "review_evidence"
+    ],
+    "Cannot change the prediction or probabilities"
+  ],
+  "input_schema": [
+    "prediction",
+    "XAI record",
+    "cited class information"
+  ],
+  "output_schema": [
+    "prediction",
+    "probabilities",
+    "uncertainty",
+    "attribution",
+    "citations",
+    "trace ID",
+    "research-only notice"
+  ],
+  "mutation_check": "probability mapping equality asserted after composition"
+}

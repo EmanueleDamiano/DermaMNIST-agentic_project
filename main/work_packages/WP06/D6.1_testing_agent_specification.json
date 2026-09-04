@@ -1,0 +1,27 @@
+{
+  "deliverable": "D6.1",
+  "status": "approved",
+  "agent": "Agent2",
+  "specification": [
+    "Evaluate candidates, select one model, and run the final test",
+    [
+      "evaluate_validation",
+      "freeze_model",
+      "verify_model_package",
+      "run_final_test"
+    ],
+    "Cannot change the model after selection"
+  ],
+  "input_schema": [
+    "model manifest",
+    "test configuration",
+    "dataset vault"
+  ],
+  "output_schema": [
+    "metrics",
+    "duplicate sensitivity",
+    "robustness",
+    "failure cases"
+  ],
+  "mutation_permissions": []
+}
