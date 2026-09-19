@@ -1,0 +1,24 @@
+{
+  "trace_id": "ce3c841f-de2f-4837-86ae-b64473ab2fff",
+  "input": "C:\\Users\\messl\\Downloads\\Derma\\DermaAgent\\input\\sample_derma.png",
+  "prediction": "melanocytic nevi",
+  "confidence": 0.5584046840667725,
+  "uncertain": true,
+  "probabilities": {
+    "actinic keratoses and intraepithelial carcinoma": 0.036790233105421066,
+    "basal cell carcinoma": 0.008833913132548332,
+    "benign keratosis-like lesions": 0.13901804387569427,
+    "dermatofibroma": 0.016100941225886345,
+    "melanoma": 0.2297964245080948,
+    "melanocytic nevi": 0.5584046840667725,
+    "vascular lesions": 0.01105576939880848
+  },
+  "class_information": "A melanocytic naevus is a benign proliferation of melanocytes.",
+  "citations": [
+    {
+      "title": "DermNet: Melanocytic naevus",
+      "url": "https://dermnetnz.org/topics/melanocytic-naevus"
+    }
+  ],
+  "attribution": "attribution.png"
+}

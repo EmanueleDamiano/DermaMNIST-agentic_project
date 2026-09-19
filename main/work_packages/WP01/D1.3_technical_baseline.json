@@ -1,6 +1,6 @@
 {
   "deliverable": "D1.3",
-  "created_at": "2026-09-03T11:50:32+00:00",
+  "created_at": "2026-09-19T16:34:24+00:00",
   "status": "approved",
   "dataset_policy": {
     "dataset_id": "dermamnist-v2-28",
@@ -37,6 +37,14 @@
   },
   "agent_interfaces": {
     "Agent1": {
+      "task": "Select or validate each candidate's starting hyperparameters and tuning mode",
+      "allowed_tools": [
+        "choose_training_parameters",
+        "validate_manual_hyperparameters"
+      ],
+      "boundary": "Cannot start training or change a result after selection"
+    },
+    "Agent2": {
       "task": "Train the three classifier candidates",
       "allowed_tools": [
         "train_candidate",
@@ -44,7 +52,7 @@
       ],
       "boundary": "Cannot access final test labels"
     },
-    "Agent2": {
+    "Agent3": {
       "task": "Evaluate candidates, select one model, and run the final test",
       "allowed_tools": [
         "evaluate_validation",
@@ -54,7 +62,7 @@
       ],
       "boundary": "Cannot change the model after selection"
     },
-    "Agent3": {
+    "Agent4": {
       "task": "Create class information, attribution, output, and review records",
       "allowed_tools": [
         "retrieve_approved_fact",
@@ -86,6 +94,6 @@
   "runtime": {
     "language": "Python 3.12",
     "ML": "PyTorch",
-    "external_api_required": false
+    "language_model": "ollama"
   }
 }

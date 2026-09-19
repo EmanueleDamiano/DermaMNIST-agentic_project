@@ -1,19 +1,19 @@
 {
   "deliverable": "D7.3",
-  "created_at": "2026-09-03T11:56:35+00:00",
-  "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
-  "sample_id": "input-e460d08e01fa",
+  "created_at": "2026-09-19T16:52:24+00:00",
+  "trace_id": "85992825-1ff4-43d4-a878-e17f34ce944a",
+  "sample_id": "input-f319b57f6174",
   "status": "passed",
   "manual_intermediate_editing": false,
-  "model_sha256": "afaca6930ab3f86f2717d5b74671207bdee00d15b1932acf239f7665d9987c85",
+  "model_sha256": "39222b5e59397d8d8cb5fe03c8d5f2f47602723208f497c2bf564d3e7e0ab2ed",
   "outputs": {
     "case_report": "work_packages/WP07/D7.2_case_report.json",
     "attribution": "work_packages/WP05/attribution_overlay.png",
     "enrichment": "work_packages/WP05/D5.2_enrichment_record.json"
   },
   "output_sha256": {
-    "case_report": "04edc6c78a124c1e28f42d79196793401c4fe7f94a767603096df1f738db2739",
-    "attribution": "7a94ed5d5833702722da9c5eb48641e8d12c31ff92348fdca08b44be0a47e214",
-    "enrichment": "ad4c100f88d44bcfd6ed9ec9d6158772bdc615c1c7a7151bdef6494c95858d59"
+    "case_report": "82297c80843cc2b068487591f2a6126acd4535cd65f836fa86fe7aa08f7d1511",
+    "attribution": "a62f282819024fe5a97d377546a1130d9f439f71c6526c3cd843f97f9e5cfc19",
+    "enrichment": "422c6e8f809c4ff0e3ac77c58117e276cb1bdf0275bf0a5fa8c4fa85eac0b9b0"
   }
 }

@@ -3,7 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import torch
@@ -13,6 +13,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "main"))
 
 import derma_agent as project
+import agentic_derma as agentic
+import knowledge
 import run as launcher
 
 
@@ -72,13 +74,47 @@ class ModelAndDataTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 project.validate_input_image(path)
 
+    def test_adaptive_learning_rate_reduces_on_plateau(self):
+        config = project.load_config()
+        history = [
+            {"train_loss": 1.0, "validation": {"macro_f1": 0.30}},
+            {"train_loss": 0.9, "validation": {"macro_f1": 0.29}},
+        ]
+        updated, decision = project.adapt_learning_rate(history, 0.003, config)
+        self.assertLess(updated, 0.003)
+        self.assertIn("reduce", decision)
+
+    def test_automatic_parameters_stay_inside_limits(self):
+        config = project.load_config()
+        selected = project.choose_training_parameters("resnet18_28", config)
+        self.assertGreaterEqual(selected["learning_rate"], config["training"]["adaptive"]["minimum_learning_rate"])
+        self.assertLessEqual(selected["learning_rate"], config["training"]["adaptive"]["maximum_learning_rate"])
+
+    def test_manual_hyperparameters_are_validated_against_the_same_bounds(self):
+        config = project.load_config()
+        adaptive = config["training"]["adaptive"]
+        accepted = project.validate_manual_hyperparameters({"learning_rate": adaptive["maximum_learning_rate"]}, config)
+        self.assertEqual(accepted["selection_source"], "user-specified")
+        self.assertEqual(accepted["batch_size"], config["training"]["batch_size"])
+        with self.assertRaises(ValueError):
+            project.validate_manual_hyperparameters({"learning_rate": adaptive["maximum_learning_rate"] * 10}, config)
+
+    def test_tuning_agent_switches_between_automatic_and_manual(self):
+        config = project.load_config()
+        tuner = project.TuningAgent()
+        automatic = tuner.plan("resnet18_28", config, None)
+        self.assertNotEqual(automatic["selection_source"], "user-specified")
+        manual = tuner.plan("resnet18_28", config, {"learning_rate": config["training"]["learning_rate"]})
+        self.assertEqual(manual["selection_source"], "user-specified")
+
 
 class AgentBoundaryTests(unittest.TestCase):
-    def test_agent_names_are_agent1_to_agent3(self):
-        self.assertEqual(set(project.AGENT_SPECS), {"Agent1", "Agent2", "Agent3"})
-        self.assertEqual(project.TrainingAgent.name, "Agent1")
-        self.assertEqual(project.EvaluationAgent.name, "Agent2")
-        self.assertEqual(project.ReviewAgent.name, "Agent3")
+    def test_agent_names_follow_process_order(self):
+        self.assertEqual(set(project.AGENT_SPECS), {"Agent1", "Agent2", "Agent3", "Agent4"})
+        self.assertEqual(project.TuningAgent.name, "Agent1")
+        self.assertEqual(project.TrainingAgent.name, "Agent2")
+        self.assertEqual(project.EvaluationAgent.name, "Agent3")
+        self.assertEqual(project.ReviewAgent.name, "Agent4")
 
     def test_agent_rejects_unapproved_tool(self):
         with patch.object(project, "append_event"):
@@ -112,6 +148,149 @@ class AgentBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             project.resolve_training_limits(project.load_config(), 1.1, 3, True)
 
+    def test_resolve_hyperparameters_from_flags_skips_prompt(self):
+        result = project.resolve_hyperparameters(project.load_config(), 0.002, None, 64, True)
+        self.assertEqual(result, {"learning_rate": 0.002, "batch_size": 64})
+
+    def test_resolve_hyperparameters_interactive_manual_choice(self):
+        with patch("builtins.input", side_effect=["m", "0.0025"]):
+            result = project.resolve_hyperparameters(project.load_config(), None, None, None, False)
+        self.assertEqual(result, {"learning_rate": 0.0025})
+
+    def test_resolve_hyperparameters_interactive_automatic_choice(self):
+        with patch("builtins.input", side_effect=["a"]):
+            result = project.resolve_hyperparameters(project.load_config(), None, None, None, False)
+        self.assertIsNone(result)
+
+    def test_resolve_hyperparameters_skipped_when_confirmed_without_flags(self):
+        result = project.resolve_hyperparameters(project.load_config(), None, None, None, True)
+        self.assertIsNone(result)
+
+
+class MemoryAndCoordinationTests(unittest.TestCase):
+    def test_memory_keeps_facts_and_samples_events(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(agentic, "MEMORY_DIR", root), patch.object(agentic, "STATE_PATH", root / "state.json"), patch.object(agentic, "EVENTS_PATH", root / "events.jsonl"):
+                memory = agentic.AgentMemory()
+                memory.save_state({"model_ready": True})
+                memory.record("chat", "User", "check the trained model", "session-a")
+                context = memory.context("session-a", "trained model", 2)
+                self.assertTrue(context["deterministic"]["model_ready"])
+                self.assertEqual(context["stochastic"][0]["session"], "session-a")
+                self.assertIsInstance(context["selection_seed"], int)
+
+    def test_agentic_derma_routes_training_and_images(self):
+        coordinator = agentic.AgenticDerma()
+        self.assertEqual(coordinator.route("train automatically", False), "train")
+        self.assertEqual(coordinator.route("train automatically", True), "train")
+        self.assertEqual(coordinator.route("Is there a trained model?", False), "status")
+        with patch.object(coordinator, "status", return_value={"model": True}):
+            self.assertEqual(coordinator.route("analyze", True), "predict")
+
+    def test_prediction_summary_preserves_ranked_probabilities(self):
+        coordinator = agentic.AgenticDerma()
+        coordinator.memory = MagicMock()
+        coordinator.memory.state.return_value = {}
+        result = {
+            "prediction": "class one", "confidence": 0.6, "uncertain": True, "trace_id": "trace-1",
+            "probabilities": {"class one": 0.6, "class two": 0.3, "class three": 0.1},
+        }
+        with patch.object(coordinator, "status", return_value={"metrics": {"accuracy": 0.55}}):
+            message = coordinator.finish_prediction("session", result)
+        self.assertIn("class one (60.0%)", message)
+        self.assertIn("class two (30.0%) and class three (10.0%)", message)
+        self.assertIn("55.0% accuracy", message)
+
+    def test_grounding_rejects_missing_or_unknown_citations(self):
+        sources = [{"label": "S1", "title": "Source", "url": "https://example.org"}]
+        self.assertFalse(agentic.AgenticDerma._grounded_answer_is_valid("A clinical statement.", sources))
+        self.assertFalse(agentic.AgenticDerma._grounded_answer_is_valid("A claim [S2].", sources))
+        self.assertTrue(agentic.AgenticDerma._grounded_answer_is_valid("A supported statement [S1].", sources))
+
+    def test_grounding_rejects_unsafe_model_language(self):
+        sources = [{"label": "S1", "title": "Source", "url": "https://example.org"}]
+        answer = "The model performs well and confirms melanoma [S1]."
+        self.assertFalse(agentic.AgenticDerma._grounded_answer_is_valid(answer, sources))
+
+    def test_chat_history_excludes_the_in_flight_message(self):
+        coordinator = agentic.AgenticDerma()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(agentic, "MEMORY_DIR", root), patch.object(agentic, "STATE_PATH", root / "state.json"), patch.object(agentic, "EVENTS_PATH", root / "events.jsonl"):
+                coordinator.memory = agentic.AgentMemory()
+                coordinator.memory.record("chat", "User", "earlier question", "session-x")
+                coordinator.memory.record("chat", "AgenticDerma", "earlier answer", "session-x", {"action": "status", "sources": []})
+                with patch.object(coordinator, "status", return_value={"model": False}), patch.object(coordinator, "_grounded_response", return_value=("answer", [])) as grounded:
+                    coordinator.chat("session-x", "new question about dermoscopy")
+                history = grounded.call_args[0][4]
+                self.assertEqual(history, [{"role": "user", "content": "earlier question"}, {"role": "assistant", "content": "earlier answer"}])
+
+    def test_handoff_declutter_removes_filler_framing(self):
+        text = "Has completed the task of initiating the attribution process, which now proceeds to Agent4 for further analysis."
+        cleaned = agentic.AgenticDerma._declutter(text)
+        self.assertNotIn("for further analysis", cleaned.lower())
+        self.assertNotIn("has completed the task of", cleaned.lower())
+        self.assertTrue(cleaned[0].isupper())
+
+    def test_online_endpoint_requires_https(self):
+        client = agentic.LLMClient(project.load_config())
+        with self.assertRaises(ValueError):
+            client.configure("compatible", "http://example.org/v1/chat/completions", "model", "key")
+
+    def test_free_keyed_providers_require_a_key(self):
+        client = agentic.LLMClient(project.load_config())
+        for provider in ("groq", "gemini", "openrouter"):
+            with self.assertRaises(ValueError):
+                client.configure(provider)
+
+    def test_free_keyed_provider_accepts_a_key(self):
+        client = agentic.LLMClient(project.load_config())
+        status = client.configure("groq", api_key="test-key")
+        self.assertEqual(status["provider"], "groq")
+        self.assertEqual(status["provider_label"], "Groq")
+        self.assertTrue(status["key_loaded"])
+        self.assertTrue(status["key_required"])
+
+
+class KnowledgeTests(unittest.TestCase):
+    def test_dermoscopy_retrieval_returns_traceable_sources(self):
+        result = knowledge.KnowledgeBase().retrieve("dermoscopy melanoma structures", 3)
+        self.assertTrue(result["context"])
+        self.assertTrue(result["sources"])
+        self.assertEqual(result["sources"][0]["label"], "S1")
+        self.assertTrue(result["sources"][0]["url"].startswith("https://"))
+
+    def test_retrieval_fallback_keeps_source_and_model_boundary(self):
+        retrieval = knowledge.KnowledgeBase().retrieve("dermoscopy lesion image", 2)
+        answer, sources = agentic.AgenticDerma._retrieval_fallback(
+            "What can dermoscopy show?", retrieval,
+            {"prediction": "melanoma", "confidence": 0.62}, "fallback",
+        )
+        self.assertIn("[S1]", answer)
+        self.assertIn("seven classes", answer)
+        self.assertEqual(sources, retrieval["sources"])
+
+    def test_retrieval_fallback_quotes_the_top_ranked_passage(self):
+        retrieval = knowledge.KnowledgeBase().retrieve("cherry hemangioma dermoscopy lacunae", 3)
+        top_text = retrieval["passages"][0]["text"].lower()
+        answer, _ = agentic.AgenticDerma._retrieval_fallback(
+            "What does dermoscopy show for a cherry hemangioma?", retrieval, {}, "fallback",
+        )
+        self.assertIn(answer.split(" [")[0].strip().lower()[:40], top_text)
+
+    def test_knowledge_covers_all_seven_dermamnist_classes(self):
+        base = knowledge.KnowledgeBase()
+        queries = [
+            "actinic keratosis intraepithelial carcinoma", "basal cell carcinoma arborizing vessels",
+            "seborrheic keratosis milia-like cysts", "dermatofibroma central white patch",
+            "melanoma asymmetric pigment network", "melanocytic nevus dermoscopic pattern",
+            "vascular lesion red lacunae",
+        ]
+        for query in queries:
+            result = base.retrieve(query, 3)
+            self.assertTrue(result["sources"], query)
+
 
 class LauncherTests(unittest.TestCase):
     def test_current_trained_model_is_ready(self):
@@ -131,11 +310,17 @@ class LauncherTests(unittest.TestCase):
             with patch("builtins.input", side_effect=["missing.png", str(image)]), patch("builtins.print"):
                 self.assertEqual(launcher.choose_image(), image.resolve())
 
-    def test_platform_has_two_processing_choices(self):
+    def test_platform_has_chat_and_live_agent_graph(self):
         page = (PROJECT_ROOT / "platform" / "app.py").read_text(encoding="utf-8")
-        self.assertEqual(page.count('data-mode="'), 2)
-        self.assertIn("Test trained model", page)
-        self.assertIn("Run full process", page)
+        self.assertIn("Ask AgenticDerma", page)
+        self.assertIn("Process map", page)
+        self.assertIn("backdrop-filter:blur", page)
+        self.assertIn("@media(max-width:680px)", page)
+        self.assertIn("Agent1", page)
+        self.assertIn("Agent2", page)
+        self.assertIn("Agent3", page)
+        self.assertIn("Agent4", page)
+        self.assertIn("New chat", page)
 
 
 if __name__ == "__main__":

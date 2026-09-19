@@ -18,7 +18,15 @@
       "horizontal_flip",
       "vertical_flip",
       "quarter_rotation"
-    ]
+    ],
+    "adaptive": {
+      "enabled": true,
+      "minimum_learning_rate": 5e-05,
+      "maximum_learning_rate": 0.004,
+      "reduction_factor": 0.5,
+      "growth_factor": 1.08,
+      "gradient_clip": 1.0
+    }
   },
   "selection": {
     "split": "official validation",

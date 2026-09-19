@@ -1,13 +1,13 @@
 {
   "deliverable": "D5.2",
-  "created_at": "2026-09-03T11:56:35+00:00",
-  "trace_id": "9be7d435-d47a-4b7f-afdb-29e41f988c79",
-  "predicted_class_id": 2,
-  "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+  "created_at": "2026-09-19T16:52:24+00:00",
+  "trace_id": "85992825-1ff4-43d4-a878-e17f34ce944a",
+  "predicted_class_id": 1,
+  "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer.",
   "citations": [
     {
-      "title": "MedMNIST: DermaMNIST dataset definition",
-      "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
+      "title": "DermNet: Basal cell carcinoma",
+      "url": "https://dermnetnz.org/topics/basal-cell-carcinoma"
     }
   ],
   "classifier_mutation": false,

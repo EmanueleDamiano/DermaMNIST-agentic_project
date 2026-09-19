@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+main/work_packages/WP03/checkpoints/
+model/model.pt
+output/memory/
+output/platform/sessions/

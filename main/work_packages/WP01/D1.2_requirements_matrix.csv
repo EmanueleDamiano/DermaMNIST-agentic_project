@@ -5,17 +5,17 @@ REQ-DATA-03,Data,Keep official benchmark split and define leakage-aware test exc
 REQ-DATA-04,Data,Compute normalization on training images only and augment training only,Technical Responsible,Pipeline configuration and code test,D2.3,A1,Approved
 REQ-TRAIN-01,Training,Compare three compact classifier families under one protocol,Technical Responsible,Three completed experiment records,"D3.1,D3.3",A3,Approved
 REQ-TRAIN-02,Training,"Record seeds, parameters, history, checkpoints, checksums, failures, and code version",Technical Responsible,Experiment registry completeness,D3.3,A2,Approved
-REQ-AGENT-01,Agents,"Give Agent1, Agent2, and Agent3 explicit tasks, allowed tools, inputs, outputs, and limits",Technical Responsible,Specifications and unauthorized-tool unit test,"D3.2,D4.2,D5.2,D6.1,D7.1,D8.1",A2,Approved
-REQ-TEST-01,Testing,Prevent Agent1 from receiving final test labels,Reviewer,Interface inspection and event sequence,"D3.2,D4.2,D6.3",A5,Approved
+REQ-AGENT-01,Agents,"Give Agent2, Agent3, and Agent4 explicit tasks, allowed tools, inputs, outputs, and limits",Technical Responsible,Specifications and unauthorized-tool unit test,"D3.2,D4.2,D5.2,D6.1,D7.1,D8.1",A2,Approved
+REQ-TEST-01,Testing,Prevent Agent2 from receiving final test labels,Reviewer,Interface inspection and event sequence,"D3.2,D4.2,D6.3",A5,Approved
 REQ-EVAL-01,Evaluation,"Report accuracy, macro-F1, balanced accuracy, macro OvR AUROC, and per-class metrics",Reviewer,Metric schema checks,"D4.1,D4.2,D6.3",A4,Approved
 REQ-EVAL-02,Evaluation,"Report confusion matrix, ECE, Brier score, and NLL",Reviewer,"Metric ranges, dimensions, and plots","D4.1,D6.3",A4,Approved
-REQ-EVAL-03,Evaluation,Select the highest validation macro-F1; use the listed tie-breakers when needed,Agent2,Selection record recomputation,"D4.2,D4.3",A3,Approved
-REQ-EVAL-04,Evaluation,Set calibration and the uncertainty threshold from the validation split,Agent2,Selected-model manifest fields,"D4.2,D4.3","A3,A5",Approved
+REQ-EVAL-03,Evaluation,Select the highest validation macro-F1; use the listed tie-breakers when needed,Agent3,Selection record recomputation,"D4.2,D4.3",A3,Approved
+REQ-EVAL-04,Evaluation,Set calibration and the uncertainty threshold from the validation split,Agent3,Selected-model manifest fields,"D4.2,D4.3","A3,A5",Approved
 REQ-XAI-01,XAI,Generate attribution from the frozen classifier and link it to the prediction trace,Technical Responsible,Model checksum and trace equality,D5.3,A6,Approved
 REQ-SOURCE-01,Enrichment,Use approved sources with title and URL for every class fact,Reviewer,Citation schema validation,"D5.1,D5.2",A6,Approved
 REQ-SOURCE-02,Enrichment,Never allow enrichment or explanation to modify class probabilities,Technical Responsible,Input/output equality assertion and unit test,"D5.2,D7.1,D7.2","A2,A6",Approved
 REQ-OUTPUT-01,Output,"Return prediction, probabilities, uncertainty, attribution, citations, and trace ID",Project Manager,Case-report schema check,D7.2,"A6,A7",Approved
-REQ-ROBUST-01,Testing,Evaluate horizontal-flip and brightness perturbations,Agent2,Robustness metric records,"D6.2,D6.3",A4,Approved
-REQ-REVIEW-01,Review,Block acceptance when any critical finding is open,Agent3,Acceptance decision logic test,"D8.1,D8.2",A8,Approved
+REQ-ROBUST-01,Testing,Evaluate horizontal-flip and brightness perturbations,Agent3,Robustness metric records,"D6.2,D6.3",A4,Approved
+REQ-REVIEW-01,Review,Block acceptance when any critical finding is open,Agent4,Acceptance decision logic test,"D8.1,D8.2",A8,Approved
 REQ-REPRO-01,Reproducibility,"Pin dependencies and record data, preprocessing, metric, model, and code versions",Technical Responsible,Clean verification plus version fields,"D1.3,D3.3,D4.3,D6.3","A3,A5",Approved
 REQ-SCOPE-01,Scope,Label all outputs research-only; omit diagnosis and treatment advice,Project Manager,"README, policy, and case-report text checks","D5.1,D7.2",A6,Approved

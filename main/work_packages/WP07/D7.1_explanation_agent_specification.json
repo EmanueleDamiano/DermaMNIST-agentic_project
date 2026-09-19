@@ -1,7 +1,7 @@
 {
   "deliverable": "D7.1",
   "status": "approved",
-  "agent": "Agent3",
+  "agent": "Agent4",
   "specification": [
     "Create class information, attribution, output, and review records",
     [
@@ -22,8 +22,7 @@
     "uncertainty",
     "attribution",
     "citations",
-    "trace ID",
-    "research-only notice"
+    "trace ID"
   ],
   "mutation_check": "probability mapping equality asserted after composition"
 }

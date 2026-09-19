@@ -1,4 +1,4 @@
-"""DermaAgent workflow."""
+"""AgenticDerma model workflow."""
 
 from __future__ import annotations
 
@@ -86,47 +86,52 @@ ACTIVITIES = [
     ("LA2.2", "Integrity audit", "Reviewer", "D2.2", "Exact, near-duplicate, label, and cross-split findings logged with leakage policy."),
     ("LA2.3", "Data preparation", "Technical Responsible", "D2.3", "A clean run recreates split IDs, normalization, augmentation policy, and loaders."),
     ("LA3.1", "Model methods", "Technical Responsible", "D3.1", "Three classifier configurations use the same preprocessing, seeds, and metrics."),
-    ("LA3.2", "Agent1", "Technical Responsible", "D3.2", "Agent1 trains the three candidates and records each run."),
+    ("LA3.2", "Agent2", "Technical Responsible", "D3.2", "Agent2 trains the three candidates and records each run."),
     ("LA3.3", "Automated training", "Technical Responsible", "D3.3", "Every run is reproducible; failures retain explicit reasons."),
     ("LA4.1", "Metric policy", "Reviewer", "D4.1", "Metrics, tie-breaks, calibration, and uncertainty rules fixed before selection."),
-    ("LA4.2", "Agent2 evaluation", "Technical Responsible", "D4.2", "Agent2 compares the three candidates and selects one model."),
+    ("LA4.2", "Agent3 evaluation", "Technical Responsible", "D4.2", "Agent3 compares the three candidates and selects one model."),
     ("LA4.3", "Model selection and freeze", "Reviewer", "D4.3", "Validation-only selection stores checksums, versions, and selection record."),
     ("LA5.1", "Source and explanation policy", "Reviewer", "D5.1", "Approved sources, citations, unsupported-claim behavior, and schema defined."),
-    ("LA5.2", "Agent3 class information", "Technical Responsible", "D5.2", "Agent3 adds cited class information without changing the prediction."),
+    ("LA5.2", "Agent4 class information", "Technical Responsible", "D5.2", "Agent4 adds cited class information without changing the prediction."),
     ("LA5.3", "XAI integration", "Technical Responsible", "D5.3", "Attribution comes from the frozen model and shares the prediction trace ID."),
-    ("LA6.1", "Agent2 testing", "Technical Responsible", "D6.1", "Agent2 tests the selected model with the specified metrics."),
+    ("LA6.1", "Agent3 testing", "Technical Responsible", "D6.1", "Agent3 tests the selected model with the specified metrics."),
     ("LA6.2", "Test protocol", "Reviewer", "D6.2", "Test set, metrics, failure rules, and output format are fixed before execution."),
     ("LA6.3", "System test", "Reviewer", "D6.3", "Metrics, calibration, robustness, and failure cases recorded without tuning."),
-    ("LA7.1", "Agent3 output", "Technical Responsible", "D7.1", "Agent3 combines prediction, attribution, and cited class information."),
+    ("LA7.1", "Agent4 output", "Technical Responsible", "D7.1", "Agent4 combines prediction, attribution, and cited class information."),
     ("LA7.2", "Output format", "Project Manager", "D7.2", "Prediction, probabilities, uncertainty, attribution, citations, and trace ID present."),
     ("LA7.3", "Prototype run", "Project Manager", "D7.3", "An unseen benchmark case runs end to end without manual intermediate edits."),
-    ("LA8.1", "Agent3 review", "Reviewer", "D8.1", "Agent3 checks the required records and acceptance results."),
+    ("LA8.1", "Agent4 review", "Reviewer", "D8.1", "Agent4 checks the required records and acceptance results."),
     ("LA8.2", "Final assessment", "Reviewer", "D8.2", "No critical finding remains open; limitations include consequences."),
 ]
 
 WORK_PACKAGES = [
     ("WP01", "Project goal", "Research, requirements, acceptance rules", "-", "Requirements approved"),
     ("WP02", "WP01 data requirements", "Dataset registry, audit, preprocessing", "WP05 source review", "Data package accepted"),
-    ("WP03", "WP02 data package", "Model setup and Agent1 training", "WP05 source preparation", "Candidate models logged"),
-    ("WP04", "WP03 model set", "Agent2 evaluation and model selection", "WP05 integration", "Selected model saved"),
-    ("WP05", "WP01 source policy + WP03 output schema", "Agent3 class information and XAI", "WP03 and WP04", "Class information and XAI verified"),
-    ("WP06", "WP04 selected model + WP05 module", "Agent2 final test", "-", "Test report accepted"),
-    ("WP07", "WP06 accepted outputs", "Agent3 output and prototype run", "-", "Prototype demonstration passed"),
-    ("WP08", "WP01-WP07 evidence", "Agent3 review and acceptance", "-", "Critical findings closed"),
+    ("WP03", "WP02 data package", "Model setup and Agent2 training", "WP05 source preparation", "Candidate models logged"),
+    ("WP04", "WP03 model set", "Agent3 evaluation and model selection", "WP05 integration", "Selected model saved"),
+    ("WP05", "WP01 source policy + WP03 output schema", "Agent4 class information and XAI", "WP03 and WP04", "Class information and XAI verified"),
+    ("WP06", "WP04 selected model + WP05 module", "Agent3 final test", "-", "Test report accepted"),
+    ("WP07", "WP06 accepted outputs", "Agent4 output and prototype run", "-", "Prototype demonstration passed"),
+    ("WP08", "WP01-WP07 evidence", "Agent4 review and acceptance", "-", "Critical findings closed"),
 ]
 
 AGENT_SPECS = {
     "Agent1": (
+        "Select or validate each candidate's starting hyperparameters and tuning mode",
+        ["choose_training_parameters", "validate_manual_hyperparameters"],
+        "Cannot start training or change a result after selection",
+    ),
+    "Agent2": (
         "Train the three classifier candidates",
         ["train_candidate", "write_experiment_record"],
         "Cannot access final test labels",
     ),
-    "Agent2": (
+    "Agent3": (
         "Evaluate candidates, select one model, and run the final test",
         ["evaluate_validation", "freeze_model", "verify_model_package", "run_final_test"],
         "Cannot change the model after selection",
     ),
-    "Agent3": (
+    "Agent4": (
         "Create class information, attribution, output, and review records",
         ["retrieve_approved_fact", "compose_case_report", "review_evidence"],
         "Cannot change the prediction or probabilities",
@@ -182,18 +187,18 @@ REQUIREMENTS = [
     ("REQ-DATA-04", "Data", "Compute normalization on training images only and augment training only", "Technical Responsible", "Pipeline configuration and code test", "D2.3", "A1"),
     ("REQ-TRAIN-01", "Training", "Compare three compact classifier families under one protocol", "Technical Responsible", "Three completed experiment records", "D3.1,D3.3", "A3"),
     ("REQ-TRAIN-02", "Training", "Record seeds, parameters, history, checkpoints, checksums, failures, and code version", "Technical Responsible", "Experiment registry completeness", "D3.3", "A2"),
-    ("REQ-AGENT-01", "Agents", "Give Agent1, Agent2, and Agent3 explicit tasks, allowed tools, inputs, outputs, and limits", "Technical Responsible", "Specifications and unauthorized-tool unit test", "D3.2,D4.2,D5.2,D6.1,D7.1,D8.1", "A2"),
-    ("REQ-TEST-01", "Testing", "Prevent Agent1 from receiving final test labels", "Reviewer", "Interface inspection and event sequence", "D3.2,D4.2,D6.3", "A5"),
+    ("REQ-AGENT-01", "Agents", "Give Agent2, Agent3, and Agent4 explicit tasks, allowed tools, inputs, outputs, and limits", "Technical Responsible", "Specifications and unauthorized-tool unit test", "D3.2,D4.2,D5.2,D6.1,D7.1,D8.1", "A2"),
+    ("REQ-TEST-01", "Testing", "Prevent Agent2 from receiving final test labels", "Reviewer", "Interface inspection and event sequence", "D3.2,D4.2,D6.3", "A5"),
     ("REQ-EVAL-01", "Evaluation", "Report accuracy, macro-F1, balanced accuracy, macro OvR AUROC, and per-class metrics", "Reviewer", "Metric schema checks", "D4.1,D4.2,D6.3", "A4"),
     ("REQ-EVAL-02", "Evaluation", "Report confusion matrix, ECE, Brier score, and NLL", "Reviewer", "Metric ranges, dimensions, and plots", "D4.1,D6.3", "A4"),
-    ("REQ-EVAL-03", "Evaluation", "Select the highest validation macro-F1; use the listed tie-breakers when needed", "Agent2", "Selection record recomputation", "D4.2,D4.3", "A3"),
-    ("REQ-EVAL-04", "Evaluation", "Set calibration and the uncertainty threshold from the validation split", "Agent2", "Selected-model manifest fields", "D4.2,D4.3", "A3,A5"),
+    ("REQ-EVAL-03", "Evaluation", "Select the highest validation macro-F1; use the listed tie-breakers when needed", "Agent3", "Selection record recomputation", "D4.2,D4.3", "A3"),
+    ("REQ-EVAL-04", "Evaluation", "Set calibration and the uncertainty threshold from the validation split", "Agent3", "Selected-model manifest fields", "D4.2,D4.3", "A3,A5"),
     ("REQ-XAI-01", "XAI", "Generate attribution from the frozen classifier and link it to the prediction trace", "Technical Responsible", "Model checksum and trace equality", "D5.3", "A6"),
     ("REQ-SOURCE-01", "Enrichment", "Use approved sources with title and URL for every class fact", "Reviewer", "Citation schema validation", "D5.1,D5.2", "A6"),
     ("REQ-SOURCE-02", "Enrichment", "Never allow enrichment or explanation to modify class probabilities", "Technical Responsible", "Input/output equality assertion and unit test", "D5.2,D7.1,D7.2", "A2,A6"),
     ("REQ-OUTPUT-01", "Output", "Return prediction, probabilities, uncertainty, attribution, citations, and trace ID", "Project Manager", "Case-report schema check", "D7.2", "A6,A7"),
-    ("REQ-ROBUST-01", "Testing", "Evaluate horizontal-flip and brightness perturbations", "Agent2", "Robustness metric records", "D6.2,D6.3", "A4"),
-    ("REQ-REVIEW-01", "Review", "Block acceptance when any critical finding is open", "Agent3", "Acceptance decision logic test", "D8.1,D8.2", "A8"),
+    ("REQ-ROBUST-01", "Testing", "Evaluate horizontal-flip and brightness perturbations", "Agent3", "Robustness metric records", "D6.2,D6.3", "A4"),
+    ("REQ-REVIEW-01", "Review", "Block acceptance when any critical finding is open", "Agent4", "Acceptance decision logic test", "D8.1,D8.2", "A8"),
     ("REQ-REPRO-01", "Reproducibility", "Pin dependencies and record data, preprocessing, metric, model, and code versions", "Technical Responsible", "Clean verification plus version fields", "D1.3,D3.3,D4.3,D6.3", "A3,A5"),
     ("REQ-SCOPE-01", "Scope", "Label all outputs research-only; omit diagnosis and treatment advice", "Project Manager", "README, policy, and case-report text checks", "D5.1,D7.2", "A6"),
 ]
@@ -219,7 +224,6 @@ def deliverable_path(deliverable: str) -> Path:
 
 
 def saved_model_path(manifest: dict[str, Any]) -> Path:
-    """Resolve the selected model stored in the top-level model folder."""
     path = (PROJECT_ROOT / manifest["model_file"]).resolve()
     if path != MODEL_PATH.resolve():
         raise ValueError("The trained model must be stored at model/model.pt")
@@ -281,8 +285,6 @@ def append_event(agent: str, tool: str, status: str, details: dict[str, Any] | N
 
 
 class ControlledAgent:
-    """Reject tools outside the agent allow list."""
-
     name = "Agent"
     allowed_tools: frozenset[str] = frozenset()
 
@@ -307,7 +309,7 @@ def download_dataset(config: dict[str, Any]) -> Path:
         return DATA_PATH
     if DATA_PATH.exists():
         DATA_PATH.unlink()
-    request = urllib.request.Request(config["data"]["url"], headers={"User-Agent": "DermaAgent/1.0"})
+    request = urllib.request.Request(config["data"]["url"], headers={"User-Agent": "AgenticDerma/3.0"})
     with tempfile.NamedTemporaryFile(delete=False, dir=DATA_PATH.parent, suffix=".part") as temp:
         temp_path = Path(temp.name)
         with urllib.request.urlopen(request, timeout=120) as response:
@@ -489,8 +491,6 @@ class TestBundle:
 
 
 class DatasetVault:
-    """Only exposes labels through role-specific methods."""
-
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.path = download_dataset(config)
@@ -775,6 +775,68 @@ def training_statistics(images: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return mean, std
 
 
+def choose_training_parameters(name: str, config: dict[str, Any]) -> dict[str, Any]:
+    base_lr = float(config["training"]["learning_rate"])
+    learning_rate = base_lr
+    source = "project defaults"
+    registry = deliverable_path("D3.3")
+    if registry.is_file():
+        try:
+            previous = [
+                run for run in read_json(registry).get("runs", [])
+                if run.get("model_name") == name and run.get("status") == "completed"
+            ]
+            if previous:
+                score = float(previous[-1].get("best_validation_macro_f1", 0.0))
+                learning_rate = base_lr * (1.08 if score >= 0.4 else 0.75 if score < 0.25 else 1.0)
+                source = f"previous run macro-F1 {score:.3f}"
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
+    adaptive = config["training"]["adaptive"]
+    learning_rate = min(float(adaptive["maximum_learning_rate"]), max(float(adaptive["minimum_learning_rate"]), learning_rate))
+    return {
+        "learning_rate": learning_rate,
+        "weight_decay": float(config["training"]["weight_decay"]),
+        "batch_size": int(config["training"]["batch_size"]),
+        "selection_source": source,
+    }
+
+
+def validate_manual_hyperparameters(manual: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    adaptive = config["training"]["adaptive"]
+    minimum, maximum = float(adaptive["minimum_learning_rate"]), float(adaptive["maximum_learning_rate"])
+    learning_rate = float(manual["learning_rate"])
+    if not minimum <= learning_rate <= maximum:
+        raise ValueError(f"Learning rate must be between {minimum} and {maximum}")
+    weight_decay = float(manual.get("weight_decay", config["training"]["weight_decay"]))
+    if not 0 <= weight_decay <= 0.1:
+        raise ValueError("Weight decay must be between 0 and 0.1")
+    batch_size = int(manual.get("batch_size", config["training"]["batch_size"]))
+    if not 8 <= batch_size <= 512:
+        raise ValueError("Batch size must be between 8 and 512")
+    return {
+        "learning_rate": learning_rate, "weight_decay": weight_decay, "batch_size": batch_size,
+        "selection_source": "user-specified",
+    }
+
+
+def adapt_learning_rate(history: list[dict[str, Any]], current: float, config: dict[str, Any]) -> tuple[float, str]:
+    if not config["training"]["adaptive"]["enabled"] or len(history) < 2:
+        return current, "keep: collecting epoch evidence"
+    adaptive = config["training"]["adaptive"]
+    latest = history[-1]
+    previous = history[:-1]
+    previous_best = max(float(item["validation"]["macro_f1"]) for item in previous)
+    latest_score = float(latest["validation"]["macro_f1"])
+    if latest_score <= previous_best + 1e-4:
+        changed = max(float(adaptive["minimum_learning_rate"]), current * float(adaptive["reduction_factor"]))
+        return changed, "reduce: validation macro-F1 did not improve"
+    if latest_score >= previous_best + 0.01 and latest["train_loss"] < previous[-1]["train_loss"]:
+        changed = min(float(adaptive["maximum_learning_rate"]), current * float(adaptive["growth_factor"]))
+        return changed, "increase: loss fell and validation macro-F1 improved"
+    return current, "keep: validation trend is stable"
+
+
 def train_candidate(
     name: str,
     bundle: TrainingBundle,
@@ -782,20 +844,23 @@ def train_candidate(
     target_accuracy: float,
     max_epochs: int,
     device: torch.device,
+    hyperparameters: dict[str, Any] | None = None,
+    epoch_callback: Callable[[int, int, dict[str, Any], str], None] | None = None,
 ) -> dict[str, Any]:
     seed = config["training"]["seed"]
     set_seed(seed)
     mean, std = training_statistics(bundle.train_images)
     generator = torch.Generator().manual_seed(seed)
+    chosen = hyperparameters or choose_training_parameters(name, config)
     train_loader = DataLoader(
         ImageDataset(bundle.train_images, bundle.train_labels, mean, std, augment=True),
-        batch_size=config["training"]["batch_size"], shuffle=True, generator=generator, num_workers=0,
+        batch_size=chosen["batch_size"], shuffle=True, generator=generator, num_workers=0,
     )
     model = make_model(name).to(device)
     counts = np.bincount(bundle.train_labels, minlength=7)
     class_weights = len(bundle.train_labels) / (7 * np.maximum(counts, 1))
     criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float32, device=device))
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config["training"]["learning_rate"], weight_decay=config["training"]["weight_decay"])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=chosen["learning_rate"], weight_decay=chosen["weight_decay"])
     history: list[dict[str, Any]] = []
     best_score, best_state, stale = -1.0, None, 0
     stop_reason = "maximum epochs reached"
@@ -807,11 +872,24 @@ def train_candidate(
             optimizer.zero_grad(set_to_none=True)
             loss = criterion(model(inputs), targets)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), float(config["training"]["adaptive"]["gradient_clip"]))
             optimizer.step()
             total_loss += float(loss.item()) * len(targets)
         logits, truth = predict_logits(model, bundle.val_images, bundle.val_labels, mean, std, config["training"]["batch_size"], device)
         metrics = classification_metrics(truth, softmax_numpy(logits), config["evaluation"]["calibration_bins"])
-        history.append({"epoch": epoch, "train_loss": total_loss / len(bundle.train_labels), "validation": metrics})
+        learning_rate = float(optimizer.param_groups[0]["lr"])
+        epoch_record = {
+            "epoch": epoch, "train_loss": total_loss / len(bundle.train_labels), "validation": metrics,
+            "learning_rate": learning_rate,
+        }
+        history.append(epoch_record)
+        next_learning_rate, tuning_decision = adapt_learning_rate(history, learning_rate, config)
+        for group in optimizer.param_groups:
+            group["lr"] = next_learning_rate
+        epoch_record["next_learning_rate"] = next_learning_rate
+        epoch_record["tuning_decision"] = tuning_decision
+        if epoch_callback:
+            epoch_callback(epoch, max_epochs, metrics, tuning_decision)
         if metrics["macro_f1"] > best_score + 1e-8:
             best_score = metrics["macro_f1"]
             best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
@@ -838,12 +916,23 @@ def train_candidate(
         "parameters": count_parameters(model), "checkpoint_file": checkpoint_path.relative_to(ROOT).as_posix(),
         "checkpoint_sha256": file_hash(checkpoint_path), "normalization_mean": mean.tolist(), "normalization_std": std.tolist(),
         "class_weights": class_weights.tolist(), "history": history, "best_validation_macro_f1": best_score,
+        "hyperparameter_mode": "adaptive", "initial_hyperparameters": chosen,
         "created_at": now_iso(), "code_version": config["project"]["code_version"],
     }
 
 
-class TrainingAgent(ControlledAgent):
+class TuningAgent(ControlledAgent):
     name = "Agent1"
+    allowed_tools = frozenset({"choose_training_parameters", "validate_manual_hyperparameters"})
+
+    def plan(self, name: str, config: dict[str, Any], manual: dict[str, Any] | None) -> dict[str, Any]:
+        if manual is None:
+            return self.call("choose_training_parameters", choose_training_parameters, name, config)
+        return self.call("validate_manual_hyperparameters", validate_manual_hyperparameters, manual, config)
+
+
+class TrainingAgent(ControlledAgent):
+    name = "Agent2"
     allowed_tools = frozenset({"train_candidate", "write_experiment_record"})
 
     def run(
@@ -854,19 +943,40 @@ class TrainingAgent(ControlledAgent):
         max_epochs: int,
         device: torch.device,
         progress: Callable[[int, str], None] | None = None,
+        manual_hyperparameters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        tuning_mode = "manual" if manual_hyperparameters is not None else "automatic"
+        run_config = config
+        if manual_hyperparameters is not None:
+            adaptive = {**config["training"]["adaptive"], "enabled": False}
+            run_config = {**config, "training": {**config["training"], "adaptive": adaptive}}
+        tuner = TuningAgent()
         records: list[dict[str, Any]] = []
         models = config["training"]["models"]
         for index, name in enumerate(models):
             if progress:
-                progress(18 + index * 12, f"Agent1 is training {name} ({index + 1}/{len(models)})")
+                action = "validating the requested hyperparameters for" if manual_hyperparameters is not None else "planning hyperparameters for"
+                progress(16 + index * 12, f"Agent1 is {action} {name} ({index + 1}/{len(models)})")
             try:
-                records.append(self.call("train_candidate", train_candidate, name, bundle, config, target_accuracy, max_epochs, device))
+                chosen = tuner.plan(name, config, manual_hyperparameters)
+                if progress:
+                    progress(18 + index * 12, f"Agent2 is training {name} ({index + 1}/{len(models)})")
+
+                def epoch_progress(epoch: int, maximum: int, metrics: dict[str, Any], decision: str, model_index: int = index, model_name: str = name) -> None:
+                    if progress:
+                        percent = 18 + model_index * 12 + min(10, round(10 * epoch / maximum))
+                        progress(percent, f"Agent2 · {model_name} · epoch {epoch}/{maximum} · macro-F1 {metrics['macro_f1']:.3f} · {decision}")
+
+                records.append(self.call(
+                    "train_candidate", train_candidate, name, bundle, run_config, target_accuracy, max_epochs,
+                    device, chosen, epoch_progress,
+                ))
             except Exception as exc:
                 records.append({"run_id": f"run-{name}", "model_name": name, "status": "failed", "reason": str(exc), "created_at": now_iso()})
         self.call("write_experiment_record", write_json, deliverable_path("D3.3"), {
-            "deliverable": "D3.3", "created_at": now_iso(),
-            "target_validation_accuracy": target_accuracy, "maximum_epochs": max_epochs, "runs": records,
+            "deliverable": "D3.3", "created_at": now_iso(), "tuning_mode": tuning_mode,
+            "target_validation_accuracy": target_accuracy, "maximum_epochs": max_epochs,
+            "adaptive_hyperparameters": run_config["training"]["adaptive"], "runs": records,
             "completed_count": sum(record["status"] == "completed" for record in records),
             "failed_count": sum(record["status"] == "failed" for record in records),
         })
@@ -893,7 +1003,7 @@ def selection_key(item: dict[str, Any], config: dict[str, Any]) -> tuple[float, 
 
 
 class EvaluationAgent(ControlledAgent):
-    name = "Agent2"
+    name = "Agent3"
     allowed_tools = frozenset({"evaluate_validation", "freeze_model"})
 
     def run(self, records: list[dict[str, Any]], bundle: TrainingBundle, config: dict[str, Any], device: torch.device) -> dict[str, Any]:
@@ -1004,7 +1114,7 @@ def plot_calibration(labels: np.ndarray, probabilities: np.ndarray, bins: int, p
 
 
 class TestingAgent(ControlledAgent):
-    name = "Agent2"
+    name = "Agent3"
     allowed_tools = frozenset({"verify_model_package", "run_final_test"})
 
     def run(self, vault: DatasetVault, manifest: dict[str, Any], audit: dict[str, Any], config: dict[str, Any], device: torch.device) -> dict[str, Any]:
@@ -1118,7 +1228,7 @@ def model_prediction(image: np.ndarray, sample_id: str, manifest: dict[str, Any]
 
 
 class EnrichmentAgent(ControlledAgent):
-    name = "Agent3"
+    name = "Agent4"
     allowed_tools = frozenset({"retrieve_approved_fact"})
 
     def run(self, prediction: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
@@ -1140,7 +1250,7 @@ class EnrichmentAgent(ControlledAgent):
 
 
 class ExplanationAgent(ControlledAgent):
-    name = "Agent3"
+    name = "Agent4"
     allowed_tools = frozenset({"compose_case_report"})
 
     def run(self, prediction: dict[str, Any], xai: dict[str, Any], enrichment: dict[str, Any]) -> dict[str, Any]:
@@ -1151,7 +1261,6 @@ class ExplanationAgent(ControlledAgent):
         def compose() -> dict[str, Any]:
             return {
                 "deliverable": "D7.2", "created_at": now_iso(), "trace_id": prediction["trace_id"], "sample_id": prediction["sample_id"],
-                "research_only_notice": "Research benchmark output only; not a diagnosis or treatment recommendation.",
                 "model_evidence": prediction, "xai_evidence": xai,
                 "cited_class_information": {"fact": enrichment["fact"], "citations": enrichment["citations"]},
                 "explanation": (
@@ -1182,14 +1291,14 @@ def build_case(
     progress: Callable[[int, str], None] | None = None,
 ) -> dict[str, Any]:
     trace_id = str(uuid.uuid4())
-    report_progress(progress, 20, "Agent2 is classifying the image")
+    report_progress(progress, 20, "Agent3 is classifying the image")
     prediction = model_prediction(image, sample_id, manifest, config, device, trace_id)
-    report_progress(progress, 45, "Agent3 is creating the attribution")
+    report_progress(progress, 45, "Agent4 is creating the attribution")
     xai = xai_attribution(image, manifest, device, trace_id)
     write_json(deliverable_path("D5.3"), xai)
-    report_progress(progress, 70, "Agent3 is adding class information")
+    report_progress(progress, 70, "Agent4 is adding class information")
     enrichment = EnrichmentAgent().run(prediction, config)
-    report_progress(progress, 85, "Agent3 is building the result")
+    report_progress(progress, 85, "Agent4 is building the result")
     report = ExplanationAgent().run(prediction, xai, enrichment)
     package = {
         "deliverable": "D7.3", "created_at": now_iso(), "trace_id": trace_id, "sample_id": sample_id, "status": "passed",
@@ -1252,10 +1361,9 @@ def run_user_image(
         "class_information": report["cited_class_information"]["fact"],
         "citations": report["cited_class_information"]["citations"],
         "attribution": "attribution.png",
-        "notice": "Research and education only.",
     }
     write_json(output_dir / "prediction.json", result)
-    report_progress(progress, 100, "Result ready")
+    report_progress(progress, 100, "The prediction, attribution, and class information are compiled into the final result")
     return result
 
 
@@ -1266,7 +1374,7 @@ def load_events() -> list[dict[str, Any]]:
 
 
 class ReviewAgent(ControlledAgent):
-    name = "Agent3"
+    name = "Agent4"
     allowed_tools = frozenset({"review_evidence"})
 
     def run(self, config: dict[str, Any]) -> dict[str, Any]:
@@ -1288,7 +1396,7 @@ class ReviewAgent(ControlledAgent):
             citations_ok = bool(case["cited_class_information"]["citations"]) and all(item.get("url") and item.get("title") for item in case["cited_class_information"]["citations"])
             checks = [
                 ("A1", read_json(deliverable_path("D2.1"))["status"] == "verified" and audit["status"] == "accepted_with_documented_controls", "Dataset identity, integrity findings, and parallel leakage-aware policy recorded."),
-                ("A2", not unauthorized and all(agent in {event["agent"] for event in events} for agent in AGENT_SPECS), "Agent1, Agent2, and Agent3 logged only allowed actions."),
+                ("A2", not unauthorized and all(agent in {event["agent"] for event in events} for agent in AGENT_SPECS), "Agent2, Agent3, and Agent4 logged only allowed actions."),
                 ("A3", selection["selection_data"] == "validation only" and file_hash(saved_model_path(manifest)) == manifest["model_sha256"] and manifest["post_test_tuning_allowed"] is False, "Selection rule and model checksum verified."),
                 ("A4", metric_keys.issubset(test["metrics"]) and len(test["metrics"]["per_class"]) == 7 and len(test["metrics"]["confusion_matrix"]) == 7, "Aggregate, class-balanced, per-class, calibration, and confusion evidence present."),
                 ("A5", test["post_test_tuning_performed"] is False and test["frozen_at"] == manifest["frozen_at"], "Final test used the saved model and no retraining is recorded."),
@@ -1350,20 +1458,20 @@ def write_static_deliverables(config: dict[str, Any]) -> None:
         "model_scope": {"families": config["training"]["models"], "adaptation": "Compact 28×28 implementations preserve family building blocks while keeping CPU feasibility."},
         "agent_interfaces": {name: {"task": spec[0], "allowed_tools": spec[1], "boundary": spec[2]} for name, spec in AGENT_SPECS.items()},
         "metric_policy": config["evaluation"], "test_rule": "The final test runs after D4.3 is saved and checksummed.",
-        "runtime": {"language": "Python 3.12", "ML": "PyTorch", "external_api_required": False},
+        "runtime": {"language": "Python 3.12", "ML": "PyTorch", "language_model": config["language_model"]["default_provider"]},
     })
     write_json(deliverable_path("D3.1"), {
         "deliverable": "D3.1", "status": "approved", "models": config["training"]["models"],
-        "shared_controls": {key: config["training"][key] for key in ("seed", "batch_size", "default_max_epochs", "default_target_accuracy", "learning_rate", "weight_decay", "loss", "augmentation")},
+        "shared_controls": {key: config["training"][key] for key in ("seed", "batch_size", "default_max_epochs", "default_target_accuracy", "learning_rate", "weight_decay", "loss", "augmentation", "adaptive")},
         "selection": {"split": "official validation", "primary": config["evaluation"]["primary_metric"], "tie_breakers": config["evaluation"]["tie_breakers"]},
         "architecture_note": "Family-specific compact versions are sized for 28×28 inputs and CPU execution; they are not ImageNet-size parameter replicas.",
     })
-    write_json(deliverable_path("D3.2"), {"deliverable": "D3.2", "status": "approved", "agent": "Agent1", "specification": AGENT_SPECS["Agent1"], "input_schema": ["training images/labels", "validation images/labels", "model names", "training settings"], "output_schema": ["run ID", "history", "checkpoint", "checksum", "status/failure reason"], "test_access": "none"})
+    write_json(deliverable_path("D3.2"), {"deliverable": "D3.2", "status": "approved", "agent": "Agent2", "specification": AGENT_SPECS["Agent2"], "input_schema": ["training images/labels", "validation images/labels", "model names", "training settings"], "output_schema": ["run ID", "history", "checkpoint", "checksum", "status/failure reason"], "test_access": "none"})
     write_json(deliverable_path("D4.1"), {"deliverable": "D4.1", "status": "approved_before_selection", **config["evaluation"], "metric_definitions": {"macro_f1": "unweighted mean of seven class F1 values", "balanced_accuracy": "unweighted mean class recall", "macro_auroc": "unweighted mean one-vs-rest rank AUROC", "ece": "10-bin confidence/accuracy gap", "brier": "mean seven-class squared probability error", "nll": "mean negative log probability of true class"}})
     write_json(deliverable_path("D5.1"), {"deliverable": "D5.1", "status": "approved", "approved_source_types": ["peer-reviewed project references", "official MedMNIST documentation", "DermNet clinical topic pages"], "sources": config["sources"], "required_citation_fields": ["title", "url"], "unsupported_claim_behavior": "omit", "separation_rule": "Retrieved context cannot alter predicted class, probabilities, confidence, or uncertainty.", "output_fields": ["trace_id", "predicted_class_id", "fact", "citations", "classifier_mutation"]})
-    write_json(deliverable_path("D6.1"), {"deliverable": "D6.1", "status": "approved", "agent": "Agent2", "specification": AGENT_SPECS["Agent2"], "input_schema": ["model manifest", "test configuration", "dataset vault"], "output_schema": ["metrics", "duplicate sensitivity", "robustness", "failure cases"], "mutation_permissions": []})
+    write_json(deliverable_path("D6.1"), {"deliverable": "D6.1", "status": "approved", "agent": "Agent3", "specification": AGENT_SPECS["Agent3"], "input_schema": ["model manifest", "test configuration", "dataset vault"], "output_schema": ["metrics", "duplicate sensitivity", "robustness", "failure cases"], "mutation_permissions": []})
     write_json(deliverable_path("D6.2"), {"deliverable": "D6.2", "status": "approved_before_test", "test_set": "official DermaMNIST test split", "mandatory_metrics": ["accuracy", "macro_f1", "balanced_accuracy", "macro_auroc", "per-class precision/recall/F1/AUROC", "confusion matrix", "ECE", "Brier score", "NLL"], "robustness": config["evaluation"]["robustness_checks"], "failure_rules": ["checksum mismatch blocks testing", "no post-test tuning", "critical evidence gap blocks acceptance"], "output_format": "versioned JSON plus PNG plots"})
-    write_json(deliverable_path("D7.1"), {"deliverable": "D7.1", "status": "approved", "agent": "Agent3", "specification": AGENT_SPECS["Agent3"], "input_schema": ["prediction", "XAI record", "cited class information"], "output_schema": ["prediction", "probabilities", "uncertainty", "attribution", "citations", "trace ID", "research-only notice"], "mutation_check": "probability mapping equality asserted after composition"})
+    write_json(deliverable_path("D7.1"), {"deliverable": "D7.1", "status": "approved", "agent": "Agent4", "specification": AGENT_SPECS["Agent4"], "input_schema": ["prediction", "XAI record", "cited class information"], "output_schema": ["prediction", "probabilities", "uncertainty", "attribution", "citations", "trace ID"], "mutation_check": "probability mapping equality asserted after composition"})
 
 
 def write_preprocessing_deliverable(bundle: TrainingBundle, config: dict[str, Any]) -> None:
@@ -1377,143 +1485,6 @@ def write_preprocessing_deliverable(bundle: TrainingBundle, config: dict[str, An
         "validation_indices_sha256": hashlib.sha256(bundle.val_indices.tobytes()).hexdigest(), "status": "reproducible",
     })
 
-
-def create_overview(config: dict[str, Any]) -> Path:
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Font, PatternFill
-        from openpyxl.utils import get_column_letter
-    except ImportError as exc:
-        raise RuntimeError("Install requirements.txt before creating the workbook") from exc
-
-    output = PROJECT_ROOT / "Project_Overview.xlsx"
-    workbook = Workbook()
-    navy, pale, white = "17365D", "D9EAF7", "FFFFFF"
-
-    def format_sheet(sheet: Any, widths: dict[int, int]) -> None:
-        sheet.freeze_panes = "A2"
-        sheet.auto_filter.ref = sheet.dimensions
-        sheet.sheet_view.showGridLines = False
-        for cell in sheet[1]:
-            cell.fill = PatternFill("solid", fgColor=navy)
-            cell.font = Font(color=white, bold=True)
-            cell.alignment = Alignment(vertical="center", wrap_text=True)
-        for row in sheet.iter_rows(min_row=2):
-            for cell in row:
-                cell.alignment = Alignment(vertical="top", wrap_text=True)
-        for index, width in widths.items():
-            sheet.column_dimensions[get_column_letter(index)].width = width
-
-    sheet = workbook.active
-    sheet.title = "Overview"
-    sheet.append(["Section", "Item", "Description"])
-    overview_rows = [
-        ("Project", "Purpose", "Build and test a multi-agent system for DermaMNIST classification, evaluation, enrichment, explanation, and review."),
-        ("Project", "Dataset", "DermaMNIST v2: 10,015 RGB dermoscopic images, 28×28 pixels, seven classes."),
-        ("Project", "Task", "Supervised seven-class image classification."),
-        ("Project", "Output", "Predicted class, seven probabilities, uncertainty flag, attribution image, cited class information, and trace ID."),
-        ("Scope", "Included", "Dataset audit, preprocessing, three classifiers, three agents, metrics, calibration, attribution, citations, final test, and review."),
-        ("Scope", "Excluded", "Clinical diagnosis, treatment advice, hospital deployment, private patient data, and changes based on final test results."),
-        ("Method", "Development", "Eight work packages. Each work package produces named deliverables and ends with a completion gate."),
-        ("Method", "Readiness", "Integrated research software demonstrator. Research and education only."),
-    ]
-    for row in overview_rows:
-        sheet.append(row)
-    format_sheet(sheet, {1: 18, 2: 24, 3: 100})
-
-    sheet = workbook.create_sheet("Objectives_RQs")
-    sheet.append(["Type", "ID", "Statement", "Expected result"])
-    objective_rows = [
-        ("Objective", "O1", "Verify the data basis.", "Dataset registry, duplicate checks, class distribution, checksums, and preprocessing settings."),
-        ("Objective", "O2", "Build the classifier.", "Three model configurations compared with the same training and evaluation settings."),
-        ("Objective", "O3", "Build the multi-agent workflow.", "Agent1, Agent2, and Agent3 have defined inputs, outputs, tools, and responsibilities."),
-        ("Objective", "O4", "Verify prediction and explanation.", "Metrics, uncertainty, attribution, citations, and traceable outputs."),
-        ("Objective", "O5", "Run and review the prototype.", "Complete run, review checklist, and acceptance report."),
-        ("Research question", "RQ1", "Can the agents run reproducible experiments with fixed responsibilities and complete action records?", "Agent records and reproducibility checks."),
-        ("Research question", "RQ2", "Which classifier gives the best class-balanced result?", "Validation comparison across the three classifier families."),
-        ("Research question", "RQ3", "Can the system add cited class information and visual attribution without changing the classifier result?", "Probability and trace checks in the final report."),
-    ]
-    for row in objective_rows:
-        sheet.append(row)
-    format_sheet(sheet, {1: 20, 2: 12, 3: 85, 4: 70})
-
-    sheet = workbook.create_sheet("Work_Packages")
-    sheet.append(["WP", "Name", "Requires", "Main work", "Parallel work", "Completion gate"])
-    for wp, requires, main, parallel, gate in WORK_PACKAGES:
-        sheet.append([wp, WP_NAMES[int(wp[-2:])], requires, main, parallel, gate])
-    format_sheet(sheet, {1: 10, 2: 30, 3: 38, 4: 55, 5: 28, 6: 35})
-
-    sheet = workbook.create_sheet("Deliverables")
-    sheet.append(["Activity", "Activity name", "Responsible", "Deliverable", "Check"])
-    for row in ACTIVITIES:
-        sheet.append(row)
-    format_sheet(sheet, {1: 12, 2: 34, 3: 25, 4: 14, 5: 85})
-
-    sheet = workbook.create_sheet("Requirements")
-    sheet.append(["ID", "Area", "Requirement", "Owner", "Verification", "Deliverable", "Acceptance"])
-    for row in REQUIREMENTS:
-        sheet.append(row)
-    format_sheet(sheet, {1: 18, 2: 18, 3: 72, 4: 24, 5: 48, 6: 28, 7: 16})
-
-    agent_io = {
-        "Agent1": ("Training and validation data, model list, stop settings", "Experiment records and model checkpoints"),
-        "Agent2": ("Experiment records, validation data, selected model, and test data", "Model selection, metrics, robustness results, and failure cases"),
-        "Agent3": ("Prediction, attribution, class sources, and work-package records", "Cited output, review checklist, and acceptance report"),
-    }
-    sheet = workbook.create_sheet("Agents")
-    sheet.append(["Agent", "Task", "Inputs", "Outputs", "Allowed tools", "Limit"])
-    for name, (task, tools, boundary) in AGENT_SPECS.items():
-        inputs, outputs = agent_io[name]
-        sheet.append([name, task, inputs, outputs, ", ".join(tools), boundary])
-    format_sheet(sheet, {1: 22, 2: 48, 3: 50, 4: 48, 5: 45, 6: 48})
-
-    sheet = workbook.create_sheet("Technical")
-    sheet.append(["Area", "Definition"])
-    technical_rows = [
-        ("Data", "Official train, validation, and test splits; sample IDs, labels, image shape, class counts, and checksums recorded."),
-        ("Data checks", "Exact image hashes, 64-bit difference hashes, label conflicts, and cross-split matches."),
-        ("Preprocessing", "RGB values scaled to 0–1, training-channel normalization, and training augmentation."),
-        ("Models", "Compact ResNet-18, EfficientNet-B0, and ConvNeXt-Tiny for 28×28 input."),
-        ("Training", "Class-weighted cross-entropy, AdamW, fixed seed, early stopping, and saved run history."),
-        ("Model selection", "Highest validation macro-F1; balanced accuracy, macro-AUROC, and accuracy break ties."),
-        ("Final test", "Runs after model selection with fixed preprocessing, calibration, uncertainty threshold, and metrics."),
-        ("Metrics", "Accuracy, macro-F1, balanced accuracy, macro-AUROC, per-class precision/recall/F1, confusion matrix, ECE, Brier score, and NLL."),
-        ("Robustness", "Horizontal flip and ±10% brightness checks."),
-        ("Attribution", "Absolute input-gradient map from the selected classifier."),
-        ("Enrichment", "Class information from the approved source list. Each fact contains a title and URL."),
-        ("Output", "JSON prediction report and PNG attribution image."),
-        ("Launcher 1", "Run the complete process. Missing DermaMNIST data are downloaded automatically."),
-        ("Launcher 2", "Check and test the saved model with one input image."),
-        ("Launcher 3", "Open the visual platform."),
-        ("Visual platform", "Choose Test trained model or Run full process, upload an image, and view each stage."),
-    ]
-    for row in technical_rows:
-        sheet.append(row)
-    format_sheet(sheet, {1: 24, 2: 115})
-
-    sheet = workbook.create_sheet("Risks")
-    sheet.append(["ID", "Risk", "Impact", "Trigger", "Mitigation", "Owner"])
-    for row in RISKS:
-        sheet.append(row)
-    format_sheet(sheet, {1: 8, 2: 40, 3: 12, 4: 45, 5: 62, 6: 24})
-    for row in sheet.iter_rows(min_row=2):
-        if row[2].value in {"Critical", "High"}:
-            row[2].fill = PatternFill("solid", fgColor=pale)
-
-    sheet = workbook.create_sheet("Acceptance")
-    sheet.append(["ID", "Item", "Deliverables", "Pass condition"])
-    for row in ACCEPTANCE:
-        sheet.append(row)
-    format_sheet(sheet, {1: 8, 2: 38, 3: 18, 4: 90})
-
-    sheet = workbook.create_sheet("References")
-    sheet.append(["ID", "Authors", "Title", "Venue", "Year", "DOI or URL", "Project use"])
-    for row in REFERENCES:
-        sheet.append(row)
-    format_sheet(sheet, {1: 8, 2: 32, 3: 72, 4: 34, 5: 10, 6: 55, 7: 42})
-
-    workbook.save(output)
-    return output
 
 def create_and_execute_audit_notebook(config: dict[str, Any]) -> Path:
     try:
@@ -1560,7 +1531,6 @@ def verify_project(config: dict[str, Any]) -> list[str]:
     missing = [item for item in DELIVERABLE_FILES if not deliverable_path(item).exists()]
     if missing: errors.append(f"Missing deliverables: {', '.join(missing)}")
     if not DATA_PATH.exists() or data_md5(DATA_PATH) != config["data"]["md5"]: errors.append("Dataset MD5 is missing or invalid")
-    if not (PROJECT_ROOT / "Project_Overview.xlsx").exists(): errors.append("Project_Overview.xlsx is missing")
     if errors: return errors
     selection = read_json(deliverable_path("D4.2")); manifest = read_json(deliverable_path("D4.3")); test = read_json(deliverable_path("D6.3")); case = read_json(deliverable_path("D7.2")); prototype = read_json(deliverable_path("D7.3")); checklist = read_json(deliverable_path("D8.1")); acceptance = read_json(deliverable_path("D8.2"))
     if file_hash(saved_model_path(manifest)) != manifest["model_sha256"]: errors.append("Frozen model checksum mismatch")
@@ -1595,19 +1565,6 @@ def verify_project(config: dict[str, Any]) -> list[str]:
     recalculated = classification_metrics(labels, softmax_numpy(logits, manifest["temperature"]), config["evaluation"]["calibration_bins"])
     for name in ("accuracy", "macro_f1", "balanced_accuracy", "macro_auroc", "expected_calibration_error", "brier_score", "negative_log_likelihood"):
         if not math.isclose(recalculated[name], test["metrics"][name], rel_tol=0, abs_tol=1e-10): errors.append(f"Test metric recomputation differs: {name}")
-    try:
-        from openpyxl import load_workbook
-        workbook = load_workbook(PROJECT_ROOT / "Project_Overview.xlsx", data_only=False, read_only=False)
-        expected_sheets = {"Overview", "Objectives_RQs", "Work_Packages", "Deliverables", "Requirements", "Agents", "Technical", "Risks", "Acceptance", "References"}
-        if set(workbook.sheetnames) != expected_sheets: errors.append("Workbook sheet set is incomplete")
-        forbidden_headers = {"status", "progress", "evidence file", "action log", "current state"}
-        headers = {str(cell.value).lower() for sheet in workbook for cell in sheet[1] if cell.value is not None}
-        if headers & forbidden_headers: errors.append("Workbook contains progress-tracking fields")
-        if any(cell.hyperlink for sheet in workbook for row in sheet.iter_rows() for cell in row): errors.append("Workbook contains file or web hyperlinks")
-        if any(isinstance(cell.value, str) and cell.value.startswith("=") for sheet in workbook for row in sheet.iter_rows() for cell in row): errors.append("Workbook contains formulas")
-        workbook.close()
-    except Exception as exc:
-        errors.append(f"Workbook validation failed: {exc}")
     return errors
 
 
@@ -1636,6 +1593,26 @@ def resolve_training_limits(
     return target_accuracy, max_epochs
 
 
+def resolve_hyperparameters(
+    config: dict[str, Any],
+    learning_rate: float | None,
+    weight_decay: float | None,
+    batch_size: int | None,
+    confirmed: bool,
+) -> dict[str, Any] | None:
+    if learning_rate is not None:
+        values = {"learning_rate": learning_rate, "weight_decay": weight_decay, "batch_size": batch_size}
+        return {key: value for key, value in values.items() if value is not None}
+    if confirmed:
+        return None
+    choice = input("Hyperparameters: [a]utomatic (Agent1 selects and tunes) or [m]anual [a]: ").strip().lower()
+    if not choice.startswith("m"):
+        return None
+    default_lr = float(config["training"]["learning_rate"])
+    entered = input(f"Learning rate [{default_lr}]: ").strip()
+    return {"learning_rate": float(entered) if entered else default_lr}
+
+
 def export_full_process_results(
     records: list[dict[str, Any]],
     acceptance: dict[str, Any],
@@ -1655,9 +1632,11 @@ def export_full_process_results(
         shutil.copy2(source, output_dir / name)
     test = read_json(deliverable_path("D6.3"))
     selection = read_json(deliverable_path("D4.2"))
+    training = read_json(deliverable_path("D3.3"))
     summary = {
         "completed_at": now_iso(),
         "selected_model": selection["selected_model"],
+        "tuning_mode": training.get("tuning_mode", "automatic"),
         "training_stops": {record["model_name"]: record["stop_reason"] for record in records},
         "test_accuracy": test["metrics"]["accuracy"],
         "test_macro_f1": test["metrics"]["macro_f1"],
@@ -1675,6 +1654,7 @@ def run_full_process(
     max_epochs: int,
     output_dir: Path = FULL_PROCESS_OUTPUT,
     progress: Callable[[int, str], None] | None = None,
+    hyperparameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     validate_input_image(image_path)
     config = load_config()
@@ -1690,24 +1670,23 @@ def run_full_process(
     bundle = vault.training_bundle()
     write_preprocessing_deliverable(bundle, config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    report_progress(progress, 18, "Agent1 is starting model training")
-    print("[3/8] Agent1 is training the three models")
-    records = TrainingAgent().run(bundle, config, target_accuracy, max_epochs, device, progress)
-    report_progress(progress, 58, "Agent2 is comparing the trained models")
-    print("[4/8] Agent2 is selecting the model")
+    report_progress(progress, 15, "Agent1 is preparing the hyperparameter plan")
+    print("[3/8] Agent2 is training the three models")
+    records = TrainingAgent().run(bundle, config, target_accuracy, max_epochs, device, progress, hyperparameters)
+    report_progress(progress, 58, "Agent3 is comparing the trained models")
+    print("[4/8] Agent3 is selecting the model")
     manifest = EvaluationAgent().run(records, bundle, config, device)
-    report_progress(progress, 68, "Agent2 is running the final test")
-    print("[5/8] Agent2 is running the final test")
+    report_progress(progress, 68, "Agent3 is running the final test")
+    print("[5/8] Agent3 is running the final test")
     TestingAgent().run(vault, manifest, audit, config, device)
-    report_progress(progress, 82, "Agent3 is processing the input image")
-    print("[6/8] Agent3 is processing the input image")
+    report_progress(progress, 82, "Agent4 is processing the input image")
+    print("[6/8] Agent4 is processing the input image")
     prediction = run_user_image(image_path, manifest, config, device, output_dir)
-    report_progress(progress, 92, "Agent3 is reviewing the project records")
-    print("[7/8] Agent3 is reviewing the project records")
+    report_progress(progress, 92, "Agent4 is reviewing the project records")
+    print("[7/8] Agent4 is reviewing the project records")
     acceptance = ReviewAgent().run(config)
     report_progress(progress, 97, "Exporting the complete result")
     print("[8/8] Exporting results")
-    create_overview(config)
     summary = export_full_process_results(records, acceptance, prediction, output_dir)
     report_progress(progress, 100, "Complete process finished")
     return {"summary": summary, "acceptance": acceptance, "prediction": prediction}
@@ -1730,7 +1709,7 @@ def run_saved_model(image_path: Path) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="DermaAgent")
+    parser = argparse.ArgumentParser(description="AgenticDerma")
     subparsers = parser.add_subparsers(dest="command", required=True)
     test_parser = subparsers.add_parser("test", help="Test the saved model with one image")
     test_parser.add_argument("image", nargs="?", default=str(PROJECT_ROOT / "input" / "sample_derma.png"))
@@ -1739,6 +1718,11 @@ def main(argv: list[str] | None = None) -> int:
     full_parser.add_argument("--target-accuracy", type=float)
     full_parser.add_argument("--max-epochs", type=int)
     full_parser.add_argument("--yes", action="store_true", help="Use the supplied stop settings without confirmation")
+    full_parser.add_argument("--learning-rate", type=float, help="Fixed learning rate; switches Agent1 to manual mode")
+    full_parser.add_argument("--weight-decay", type=float)
+    full_parser.add_argument("--batch-size", type=int)
+    subparsers.add_parser("verify", help="Check project files, checksums, and deliverables for consistency")
+    subparsers.add_parser("notebook", help="Rebuild and execute the WP02 reproducible audit notebook")
     args = parser.parse_args(argv)
     try:
         if args.command == "test":
@@ -1746,8 +1730,20 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({key: result[key] for key in ("prediction", "confidence", "uncertain", "trace_id")}, indent=2))
             print(f"Output: {FINAL_OUTPUT}")
             return 0
+        if args.command == "verify":
+            issues = verify_project(load_config())
+            if issues:
+                print("\n".join(issues), file=sys.stderr)
+                return 2
+            print("All project checks passed.")
+            return 0
+        if args.command == "notebook":
+            path = create_and_execute_audit_notebook(load_config())
+            print(f"Notebook executed: {path}")
+            return 0
         target, maximum = resolve_training_limits(load_config(), args.target_accuracy, args.max_epochs, args.yes)
-        result = run_full_process(Path(args.image), target, maximum)
+        hyperparameters = resolve_hyperparameters(load_config(), args.learning_rate, args.weight_decay, args.batch_size, args.yes)
+        result = run_full_process(Path(args.image), target, maximum, hyperparameters=hyperparameters)
         print(json.dumps(result["summary"], indent=2))
         print(f"Output: {FULL_PROCESS_OUTPUT}")
         return 0 if result["acceptance"]["critical_findings_open"] == 0 else 2

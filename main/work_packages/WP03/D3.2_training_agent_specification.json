@@ -1,7 +1,7 @@
 {
   "deliverable": "D3.2",
   "status": "approved",
-  "agent": "Agent1",
+  "agent": "Agent2",
   "specification": [
     "Train the three classifier candidates",
     [

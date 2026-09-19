@@ -12,7 +12,7 @@
       "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
     },
     "0": {
-      "fact": "This benchmark category combines actinic keratoses and intraepithelial carcinoma; it is a dataset label, not a diagnosis.",
+      "fact": "This benchmark category combines actinic keratoses and intraepithelial carcinoma into one dataset label.",
       "citations": [
         {
           "title": "DermNet: Actinic keratosis",
@@ -25,7 +25,7 @@
       ]
     },
     "1": {
-      "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer; classifier output requires professional assessment and is not a diagnosis.",
+      "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer.",
       "citations": [
         {
           "title": "DermNet: Basal cell carcinoma",
@@ -34,7 +34,7 @@
       ]
     },
     "2": {
-      "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+      "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one condition.",
       "citations": [
         {
           "title": "MedMNIST: DermaMNIST dataset definition",
@@ -43,7 +43,7 @@
       ]
     },
     "3": {
-      "fact": "Dermatofibroma is a common benign fibrous skin nodule; this benchmark prediction is not a clinical diagnosis.",
+      "fact": "Dermatofibroma is a common benign fibrous skin nodule.",
       "citations": [
         {
           "title": "DermNet: Dermatofibroma",
@@ -52,7 +52,7 @@
       ]
     },
     "4": {
-      "fact": "Melanoma is a malignant tumour of melanocytes; suspected lesions require assessment by a qualified clinician.",
+      "fact": "Melanoma is a malignant tumour of melanocytes.",
       "citations": [
         {
           "title": "DermNet: Melanoma",
@@ -61,7 +61,7 @@
       ]
     },
     "5": {
-      "fact": "A melanocytic naevus is a benign proliferation of melanocytes; the benchmark category is not a clinical conclusion.",
+      "fact": "A melanocytic naevus is a benign proliferation of melanocytes.",
       "citations": [
         {
           "title": "DermNet: Melanocytic naevus",
@@ -70,7 +70,7 @@
       ]
     },
     "6": {
-      "fact": "Vascular skin lesions comprise multiple conditions involving blood or lymphatic vessels; this grouped output needs clinical context.",
+      "fact": "Vascular skin lesions comprise multiple conditions involving blood or lymphatic vessels.",
       "citations": [
         {
           "title": "DermNet: Vascular proliferations and abnormalities",

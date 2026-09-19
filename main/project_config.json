@@ -1,10 +1,10 @@
 {
   "project": {
-    "name": "DermaAgent",
-    "version": "1.0.0",
-    "purpose": "Reproducible, leakage-aware, multi-agent DermaMNIST research prototype",
-    "scope": "Seven-class 28x28 RGB dermoscopic image classification for research and education only",
-    "code_version": "1.0.0"
+    "name": "AgenticDerma",
+    "version": "3.0.0",
+    "purpose": "Autonomous multi-agent DermaMNIST training, prediction, explanation, and review",
+    "scope": "Seven-class 28x28 RGB dermoscopic image classification",
+    "code_version": "3.0.0"
   },
   "data": {
     "dataset_id": "dermamnist-v2-28",
@@ -33,7 +33,45 @@
     "early_stopping_patience": 2,
     "loss": "class_weighted_cross_entropy",
     "augmentation": ["horizontal_flip", "vertical_flip", "quarter_rotation"],
-    "models": ["resnet18_28", "efficientnet_b0_28", "convnext_tiny_28"]
+    "models": ["resnet18_28", "efficientnet_b0_28", "convnext_tiny_28"],
+    "adaptive": {
+      "enabled": true,
+      "minimum_learning_rate": 0.00005,
+      "maximum_learning_rate": 0.004,
+      "reduction_factor": 0.5,
+      "growth_factor": 1.08,
+      "gradient_clip": 1.0
+    }
+  },
+  "agentic_derma": {
+    "memory_context_items": 6,
+    "max_chat_history": 12
+  },
+  "language_model": {
+    "default_provider": "ollama",
+    "timeout_seconds": 60,
+    "providers": {
+      "ollama": {
+        "endpoint": "http://127.0.0.1:11434/api/chat",
+        "model": "qwen3:1.7b"
+      },
+      "groq": {
+        "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+        "model": "openai/gpt-oss-20b"
+      },
+      "gemini": {
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "model": "gemini-2.5-flash"
+      },
+      "openrouter": {
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "openrouter/free"
+      },
+      "compatible": {
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "model": ""
+      }
+    }
   },
   "evaluation": {
     "metric_version": "metrics-v1",
@@ -51,34 +89,34 @@
       "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"
     },
     "0": {
-      "fact": "This benchmark category combines actinic keratoses and intraepithelial carcinoma; it is a dataset label, not a diagnosis.",
+      "fact": "This benchmark category combines actinic keratoses and intraepithelial carcinoma into one dataset label.",
       "citations": [
         {"title": "DermNet: Actinic keratosis", "url": "https://dermnetnz.org/topics/actinic-keratosis"},
         {"title": "DermNet: Intraepidermal squamous cell carcinoma", "url": "https://dermnetnz.org/topics/intraepidermal-squamous-cell-carcinoma"}
       ]
     },
     "1": {
-      "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer; classifier output requires professional assessment and is not a diagnosis.",
+      "fact": "Basal cell carcinoma is a form of keratinocyte skin cancer.",
       "citations": [{"title": "DermNet: Basal cell carcinoma", "url": "https://dermnetnz.org/topics/basal-cell-carcinoma"}]
     },
     "2": {
-      "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one clinical diagnosis.",
+      "fact": "Benign keratosis-like lesions are represented as a grouped benchmark category rather than one condition.",
       "citations": [{"title": "MedMNIST: DermaMNIST dataset definition", "url": "https://github.com/MedMNIST/MedMNIST/blob/main/medmnist/info.py"}]
     },
     "3": {
-      "fact": "Dermatofibroma is a common benign fibrous skin nodule; this benchmark prediction is not a clinical diagnosis.",
+      "fact": "Dermatofibroma is a common benign fibrous skin nodule.",
       "citations": [{"title": "DermNet: Dermatofibroma", "url": "https://dermnetnz.org/topics/dermatofibroma"}]
     },
     "4": {
-      "fact": "Melanoma is a malignant tumour of melanocytes; suspected lesions require assessment by a qualified clinician.",
+      "fact": "Melanoma is a malignant tumour of melanocytes.",
       "citations": [{"title": "DermNet: Melanoma", "url": "https://dermnetnz.org/topics/melanoma"}]
     },
     "5": {
-      "fact": "A melanocytic naevus is a benign proliferation of melanocytes; the benchmark category is not a clinical conclusion.",
+      "fact": "A melanocytic naevus is a benign proliferation of melanocytes.",
       "citations": [{"title": "DermNet: Melanocytic naevus", "url": "https://dermnetnz.org/topics/melanocytic-naevus"}]
     },
     "6": {
-      "fact": "Vascular skin lesions comprise multiple conditions involving blood or lymphatic vessels; this grouped output needs clinical context.",
+      "fact": "Vascular skin lesions comprise multiple conditions involving blood or lymphatic vessels.",
       "citations": [{"title": "DermNet: Vascular proliferations and abnormalities", "url": "https://dermnetnz.org/topics/vascular-proliferations-and-abnormalities-of-blood-vessels"}]
     }
   }

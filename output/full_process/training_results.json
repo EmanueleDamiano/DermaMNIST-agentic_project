@@ -1,6 +1,6 @@
 {
   "deliverable": "D3.3",
-  "created_at": "2026-09-19T16:36:25+00:00",
+  "created_at": "2026-09-19T15:44:38+00:00",
   "tuning_mode": "automatic",
   "target_validation_accuracy": 0.7,
   "maximum_epochs": 3,
@@ -474,9 +474,9 @@
         "learning_rate": 0.003,
         "weight_decay": 0.0001,
         "batch_size": 128,
-        "selection_source": "previous run macro-F1 0.357"
+        "selection_source": "previous run macro-F1 0.307"
       },
-      "created_at": "2026-09-19T16:34:58+00:00",
+      "created_at": "2026-09-19T15:43:14+00:00",
       "code_version": "3.0.0"
     },
     {
@@ -940,9 +940,9 @@
         "learning_rate": 0.003,
         "weight_decay": 0.0001,
         "batch_size": 128,
-        "selection_source": "previous run macro-F1 0.382"
+        "selection_source": "previous run macro-F1 0.300"
       },
-      "created_at": "2026-09-19T16:35:39+00:00",
+      "created_at": "2026-09-19T15:43:52+00:00",
       "code_version": "3.0.0"
     },
     {
@@ -1406,9 +1406,9 @@
         "learning_rate": 0.003,
         "weight_decay": 0.0001,
         "batch_size": 128,
-        "selection_source": "previous run macro-F1 0.301"
+        "selection_source": "previous run macro-F1 0.278"
       },
-      "created_at": "2026-09-19T16:36:25+00:00",
+      "created_at": "2026-09-19T15:44:38+00:00",
       "code_version": "3.0.0"
     }
   ],

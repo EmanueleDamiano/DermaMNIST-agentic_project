@@ -1,0 +1,24 @@
+{
+  "completed_at": "2026-09-19T15:44:46+00:00",
+  "selected_model": "efficientnet_b0_28",
+  "tuning_mode": "automatic",
+  "training_stops": {
+    "resnet18_28": "maximum epochs reached",
+    "efficientnet_b0_28": "maximum epochs reached",
+    "convnext_tiny_28": "maximum epochs reached"
+  },
+  "test_accuracy": 0.5546134663341646,
+  "test_macro_f1": 0.38760417288692095,
+  "review_decision": "ACCEPTED",
+  "input_prediction": "melanocytic nevi",
+  "files": [
+    "prediction.json",
+    "attribution.png",
+    "training_results.json",
+    "model_selection.json",
+    "final_test_results.json",
+    "review.json",
+    "confusion_matrix.png",
+    "calibration_plot.png"
+  ]
+}

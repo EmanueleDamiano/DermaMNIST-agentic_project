@@ -1,5 +1,4 @@
-"""Interactive DermaAgent launcher."""
-
+"""Single launcher for AgenticDerma."""
 from __future__ import annotations
 
 import hashlib
@@ -16,6 +15,7 @@ ROOT = Path(__file__).resolve().parent
 MAIN_FILE = ROOT / "main" / "derma_agent.py"
 PLATFORM_FILE = ROOT / "platform" / "app.py"
 CONFIG_FILE = ROOT / "main" / "project_config.json"
+KNOWLEDGE_FILE = ROOT / "main" / "knowledge_base" / "corpus.json"
 DATA_FILE = ROOT / "main" / "data" / "dermamnist.npz"
 MANIFEST_FILE = ROOT / "main" / "work_packages" / "WP04" / "D4.3_frozen_model_manifest.json"
 MODEL_DIR = ROOT / "model"
@@ -38,7 +38,7 @@ def project_issue(*required: Path) -> str | None:
 
 def dependency_issue() -> str | None:
     check = subprocess.run(
-        [sys.executable, "-c", "import numpy, torch, matplotlib, PIL, openpyxl, nbformat, nbclient"],
+        [sys.executable, "-c", "import numpy, torch, matplotlib, PIL"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -46,6 +46,28 @@ def dependency_issue() -> str | None:
     if check.returncode == 0:
         return None
     return "Required packages are missing. Run: python -m pip install -r requirements.txt"
+
+
+def ensure_dependencies() -> str | None:
+    issue = dependency_issue()
+    if issue is None:
+        return None
+    print("Installing the required Python packages. This is needed only on first use.")
+    install = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "requirements.txt")],
+        cwd=ROOT,
+    )
+    if install.returncode != 0:
+        return "Package installation failed. Check the internet connection and run python run.py again."
+    return dependency_issue()
+
+
+def ensure_knowledge() -> str | None:
+    if KNOWLEDGE_FILE.is_file():
+        return None
+    print("Preparing the dermoscopy knowledge index.")
+    result = subprocess.run([sys.executable, str(ROOT / "main" / "knowledge.py")], cwd=ROOT)
+    return None if result.returncode == 0 and KNOWLEDGE_FILE.is_file() else "The knowledge index could not be prepared."
 
 
 def trained_model_issue() -> str | None:
@@ -130,7 +152,7 @@ def wait_for_platform(process: subprocess.Popen[bytes]) -> bool:
             return False
         try:
             with urllib.request.urlopen("http://127.0.0.1:8000", timeout=1) as response:
-                return response.status == 200 and b"DermaAgent" in response.read()
+                return response.status == 200 and b"AgenticDerma" in response.read()
         except OSError:
             time.sleep(0.2)
     return False
@@ -174,17 +196,28 @@ def print_menu() -> None:
     data_status = "READY" if DATA_FILE.is_file() else "DOWNLOAD REQUIRED"
     model_status = "READY" if trained_model_issue() is None else "NOT READY"
     input_status = "READY" if DEFAULT_IMAGE.is_file() else "SELECT FILE"
-    print("\nDERMA AGENT")
+    print("\nAGENTICDERMA")
     print("=" * 58)
     print(f"DATASET  {data_status:<18} MODEL  {model_status:<10} INPUT  {input_status}")
     print("-" * 58)
     print("1  FULL PROCESS       Train, test, and create final output")
     print("2  FINAL OUTPUT       Test the trained model")
-    print("3  PLATFORM           Open the visual interface")
+    print("3  PLATFORM           Open AgenticDerma and view the live process")
     print("=" * 58)
 
 
 def main() -> int:
+    if sys.version_info < (3, 11):
+        print("AgenticDerma requires Python 3.11 or newer.")
+        return 2
+    issue = project_issue(MAIN_FILE, PLATFORM_FILE, CONFIG_FILE, ROOT / "requirements.txt")
+    if issue:
+        print(issue)
+        return 2
+    issue = ensure_dependencies() or ensure_knowledge()
+    if issue:
+        print(issue)
+        return 2
     print_menu()
     while True:
         try:
