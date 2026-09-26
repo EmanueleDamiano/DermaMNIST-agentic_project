@@ -1,0 +1,61 @@
+{
+  "updated_at": "2026-09-23T13:26:33+00:00",
+  "model_ready": true,
+  "last_prediction": {
+    "prediction": "basal cell carcinoma",
+    "confidence": 0.45879605412483215,
+    "uncertain": true,
+    "top_probabilities": [
+      [
+        "basal cell carcinoma",
+        0.45879605412483215
+      ],
+      [
+        "vascular lesions",
+        0.18085889518260956
+      ],
+      [
+        "dermatofibroma",
+        0.14531344175338745
+      ]
+    ],
+    "test_metrics": {
+      "accuracy": 0.5551122194513716,
+      "macro_f1": 0.38625918378227025,
+      "balanced_accuracy": 0.47899386993922627,
+      "macro_auroc": 0.873807513400133
+    },
+    "training_summary": null
+  },
+  "last_training": {
+    "completed_at": "2026-09-23T12:54:41+00:00",
+    "selected_model": "efficientnet_b0_28",
+    "tuning_mode": "automatic",
+    "training_stops": {
+      "resnet18_28": "maximum epochs reached",
+      "efficientnet_b0_28": "maximum epochs reached",
+      "convnext_tiny_28": "maximum epochs reached"
+    },
+    "test_accuracy": 0.5551122194513716,
+    "test_macro_f1": 0.38625918378227025,
+    "review_decision": "ACCEPTED",
+    "input_prediction": "melanocytic nevi",
+    "files": [
+      "prediction.json",
+      "attribution.png",
+      "training_results.json",
+      "model_selection.json",
+      "final_test_results.json",
+      "review.json",
+      "confusion_matrix.png",
+      "calibration_plot.png"
+    ]
+  },
+  "agent_states": {
+    "AgenticDerma": "idle",
+    "Agent1": "idle",
+    "Agent2": "idle",
+    "Agent3": "idle",
+    "Agent4": "idle"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "deliverable": "D8.2",
+  "created_at": "2026-09-23T12:54:40+00:00",
+  "decision": "ACCEPTED",
+  "critical_findings_open": 0,
+  "acceptance_scope": "integrated research software demonstrator",
+  "readiness_claim": "TRL 7 target evidence assembled; this is not clinical validation or deployment approval.",
+  "accepted_limitations": [
+    "The 28×28 benchmark resolution limits spatial and clinical interpretation.",
+    "Class imbalance makes aggregate accuracy insufficient; per-class and macro results control interpretation.",
+    "Difference-hash matches are review candidates, not confirmed duplicate identities.",
+    "The curated explanation describes a benchmark class and is not individualized medical advice."
+  ],
+  "review_checklist": "work_packages/WP08/D8.1_review_checklist.json"
+}

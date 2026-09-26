@@ -1,0 +1,23 @@
+{
+  "completed_at": "2026-09-09T13:23:09+00:00",
+  "selected_model": "efficientnet_b0_28",
+  "training_stops": {
+    "resnet18_28": "maximum epochs reached",
+    "efficientnet_b0_28": "maximum epochs reached",
+    "convnext_tiny_28": "maximum epochs reached"
+  },
+  "test_accuracy": 0.5391521197007482,
+  "test_macro_f1": 0.36288604392135937,
+  "review_decision": "ACCEPTED",
+  "input_prediction": "actinic keratoses and intraepithelial carcinoma",
+  "files": [
+    "prediction.json",
+    "attribution.png",
+    "training_results.json",
+    "model_selection.json",
+    "final_test_results.json",
+    "review.json",
+    "confusion_matrix.png",
+    "calibration_plot.png"
+  ]
+}
