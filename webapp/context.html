@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Contesto del ragionamento · DermaAgent</title>
+  <style>
+    :root{
+      --ink:#1a1c1f;--ink-soft:#4d5157;--muted:#8a8d93;--line:#e6e4e0;--line-soft:#efeee9;
+      --surface:#ffffff;--canvas:#f6f5f1;--canvas-alt:#efeee7;
+      --accent:#4338ca;--accent-strong:#332c9e;--accent-soft:#edecfb;
+      --good:#0f8a5f;--good-soft:#e5f5ee;--warn:#b5760f;--warn-soft:#fbf1de;--danger:#c23b52;--danger-soft:#fbeaed;
+      --radius-sm:8px;--radius-md:13px;--radius-lg:20px;--radius-pill:999px;
+      --shadow-sm:0 1px 2px rgba(23,24,28,.05),0 1px 1px rgba(23,24,28,.04);
+      --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased}
+    button{font:inherit;color:inherit;cursor:pointer;background:none}
+    @keyframes blink{50%{opacity:.35}}
+    header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 22px}
+    .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:1100px;margin:0 auto}
+    .mark{width:32px;height:32px;border-radius:9px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none}
+    .title h1{margin:0;font-size:15px;font-weight:650}
+    .title p{margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+    .pills{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+    .pill{font-size:11px;font-weight:600;padding:5px 10px;border-radius:var(--radius-pill);background:var(--canvas-alt);color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px}
+    .pill.running{background:var(--accent-soft);color:var(--accent-strong)}
+    .pill.running:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1s infinite}
+    .pill.done{background:var(--good-soft);color:var(--good)}
+    .pill.error{background:var(--danger-soft);color:var(--danger)}
+    nav{display:flex;gap:4px;max-width:1100px;margin:12px auto 0;flex-wrap:wrap}
+    nav button{border:1px solid var(--line);border-radius:var(--radius-pill);padding:6px 13px;font-size:12px;font-weight:600;background:var(--surface)}
+    nav button[aria-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+    nav .switch{margin-left:auto;color:var(--accent-strong)}
+    main{max-width:1100px;margin:0 auto;padding:18px 22px 60px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+    .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:10px 12px}
+    .stat b{display:block;font-size:17px;font-weight:650;letter-spacing:-.01em}
+    .stat span{font-size:10.5px;color:var(--muted)}
+    .note{font-size:12px;line-height:1.6;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:15px;margin-bottom:12px}
+    .card h2{margin:0 0 3px;font-size:14px;font-weight:650}
+    .card h3{margin:14px 0 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+    .card .sub{font-size:11px;color:var(--muted)}
+    .img-head{display:flex;gap:12px;align-items:center}
+    .img-head img{width:56px;height:56px;border-radius:9px;image-rendering:pixelated;border:1px solid var(--line);flex:none}
+    table{width:100%;border-collapse:collapse;font-size:11.5px}
+    th{text-align:left;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--line)}
+    td{padding:6px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+    .scroll{overflow-x:auto}
+    .bars{display:grid;gap:5px}
+    .bar{display:grid;grid-template-columns:minmax(120px,240px) 1fr 48px;gap:8px;align-items:center;font-size:11px}
+    .bar .t{height:6px;border-radius:var(--radius-pill);background:var(--line-soft);overflow:hidden}
+    .bar .t i{display:block;height:100%;background:var(--accent)}
+    .bar b{text-align:right;font-weight:650}
+    .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:12px}
+    .kv dt{color:var(--muted)}
+    .kv dd{margin:0}
+    .chunk{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;background:var(--canvas)}
+    .chunk .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-bottom:5px}
+    .chunk .meta code{font:10.5px var(--mono);color:var(--accent-strong);background:var(--accent-soft);padding:1px 6px;border-radius:5px}
+    .chunk p{margin:0;font-size:12px;line-height:1.6;color:var(--ink-soft);white-space:pre-wrap}
+    .chunk.used{border-color:var(--good);background:var(--good-soft)}
+    .issue{display:flex;gap:8px;font-size:12px;line-height:1.5;margin-top:6px}
+    .sev{flex:none;font-size:9px;font-weight:700;text-transform:uppercase;padding:3px 6px;border-radius:5px;background:var(--canvas-alt);color:var(--ink-soft);height:fit-content}
+    .sev.critical{background:var(--danger-soft);color:var(--danger)}
+    .sev.warning{background:var(--warn-soft);color:var(--warn)}
+    pre{margin:0;font:11px/1.55 var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:14px;max-height:none}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--muted)}
+    .copy{border:1px solid var(--line);border-radius:var(--radius-pill);padding:5px 11px;font-size:11px;font-weight:600;background:var(--surface)}
+    .copy:hover{border-color:var(--accent);color:var(--accent-strong)}
+    .empty{font-size:12.5px;color:var(--muted);padding:30px 0;text-align:center}
+    .rationale{font-size:12.5px;line-height:1.6;color:var(--ink)}
+    details summary{cursor:pointer;font-size:11.5px;color:var(--accent-strong);margin-top:8px}
+    [hidden]{display:none!important}
+    @media(max-width:640px){header{padding:12px 14px}main{padding:14px}.pills{margin-left:0}.bar{grid-template-columns:110px 1fr 42px}}
+  </style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="mark" id="mark">··</div>
+    <div class="title"><h1 id="title">Contesto del ragionamento</h1><p id="subtitle">Caricamento…</p></div>
+    <div class="pills" id="pills"></div>
+  </div>
+  <nav role="tablist">
+    <button role="tab" data-tab="readable" aria-selected="true">Vista leggibile</button>
+    <button role="tab" data-tab="system" aria-selected="false">Prompt di sistema</button>
+    <button role="tab" data-tab="payload" aria-selected="false">Payload JSON</button>
+    <button role="tab" data-tab="output" aria-selected="false">Risposta</button>
+    <button class="switch" id="switchStep" hidden></button>
+  </nav>
+</header>
+<main>
+  <div class="stats" id="stats"></div>
+  <div id="note"></div>
+  <section data-panel="readable" id="readable"></section>
+  <section data-panel="system" hidden><div class="toolbar"><span>Istruzioni fisse che l'agente riceve prima dei dati</span><button class="copy" data-copy="system">Copia</button></div><pre id="systemText"></pre></section>
+  <section data-panel="payload" hidden><div class="toolbar"><span id="payloadInfo"></span><button class="copy" data-copy="payload">Copia</button></div><pre id="payloadText"></pre></section>
+  <section data-panel="output" hidden id="outputPanel"></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),params=new URLSearchParams(location.search);
+const job=params.get('job'),step=params.get('step')||'tester.reason';
+let data=null,timer=null,rendered='';
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined&&text!==null)e.textContent=String(text);return e}
+function pct(x){return (x*100).toFixed(1)+'%'}
+function fmtTime(s){return s<60?s.toFixed(0)+' s':Math.floor(s/60)+' min '+Math.round(s%60)+' s'}
+function kv(pairs){const d=el('dl','kv');pairs.filter(p=>p[1]!==undefined&&p[1]!==null&&p[1]!=='').forEach(([k,v])=>{d.append(el('dt',null,k),el('dd',null,v))});return d}
+// raw=true for weights that are not probabilities (hard vote): bars scaled to the largest value
+function bars(obj,highlight,raw){const b=el('div','bars'),vals=Object.values(obj||{}),max=raw?Math.max(...vals,1e-9):1;Object.entries(obj||{}).forEach(([k,v])=>{const r=el('div','bar'),t=el('div','t'),i=el('i');i.style.width=Math.min(100,v/max*100)+'%';if(k===highlight)i.style.background='var(--ink)';t.appendChild(i);r.append(el('span',null,k),t,el('b',null,raw?v.toFixed(2):pct(v)));b.appendChild(r)});return b}
+function table(head,rows){const w=el('div','scroll'),t=el('table'),h=el('tr');head.forEach(x=>h.appendChild(el('th',null,x)));t.appendChild(h);rows.forEach(r=>{const tr=el('tr');r.forEach(c=>tr.appendChild(el('td',null,c)));t.appendChild(tr)});w.appendChild(t);return w}
+function chunk(c,used){const d=el('div','chunk'+(used?' used':'')),m=el('div','meta');m.appendChild(el('code',null,c.chunk_id));if(c.about_class)m.appendChild(el('span',null,'per: '+c.about_class));if(c.citation)m.appendChild(el('span',null,c.citation));if(used)m.appendChild(el('b',null,'✓ citato nella risposta'));d.append(m,el('p',null,c.text));return d}
+function issues(list){const box=el('div');(list||[]).forEach(i=>{const r=el('div','issue'),t=el('div',null,i.description);r.appendChild(el('span','sev '+i.severity,i.severity));if(i.evidence){t.appendChild(el('br'));t.appendChild(el('small',null,i.evidence))}r.appendChild(t);box.appendChild(r)});if(!box.children.length)box.appendChild(el('div','sub','nessuno'));return box}
+function imgIndex(file){return (data.images||[]).indexOf(file)}
+function imgHead(file,sub){const h=el('div','img-head'),i=imgIndex(file);if(i>=0){const im=el('img');im.src='/api/image?job='+encodeURIComponent(job)+'&i='+i;im.alt=file;h.appendChild(im)}const t=el('div');t.append(el('h2',null,file),el('div','sub',sub||''));h.appendChild(t);return h}
+function usedChunks(file){
+  const out=data.context?.output,raw=out?.llm_raw;
+  if(!raw)return new Set();
+  if(step==='tester.reason'){const d=(raw.decisions||[]).find(x=>x.file===file);return new Set(d?.knowledge_used||[])}
+  return new Set();
+}
+
+function renderTester(p){
+  const box=$('#readable');
+  if(p.request){const c=el('div','card');c.append(el('h2',null,'Richiesta dell\'utente'),el('p','rationale',p.request));box.appendChild(c)}
+  const e=el('div','card');e.append(el('h2',null,'Ensemble'),el('div','sub','I modelli che hanno votato e quanto pesa ciascuno (skill = balanced accuracy di validazione sopra il caso, 1/7).'));
+  e.appendChild(table(['Modello','Epoca','Bal. acc val','Skill','Classi mai riconosciute'],p.ensemble.map(m=>[m.name,m.epoch,m.val_balanced_acc.toFixed(3),m.skill.toFixed(3),(m.blind_classes||[]).join(', ')||'—'])));box.appendChild(e);
+  p.images.forEach(img=>{
+    const v=img.vote,c=el('div','card'),used=usedChunks(img.file);
+    c.appendChild(imgHead(img.file,'Voto: '+v.vote_class+' · margine '+v.margin.toFixed(2)+' · confidenza di partenza '+v.confidence_level+(img.resized_from?' · ridimensionata da '+img.resized_from.join('×'):'')));
+    c.appendChild(el('h3',null,'Soft vote (media pesata per skill)'));c.appendChild(bars(v.soft_vote,v.vote_class));
+    c.appendChild(el('h3',null,'Hard vote (somma dei voti, ciascuno pesato per la precision di validazione)'));c.appendChild(bars(v.hard_vote,v.vote_class,true));
+    c.appendChild(el('h3',null,'Opinione di ogni modello'));
+    c.appendChild(table(['Modello','Classe','Confidenza','Skill','Precision val su quella classe','Cieco a'],v.per_model.map(o=>[o.model,o.predicted_class,pct(o.confidence),o.skill_weight.toFixed(3),o.val_precision_for_this_class.toFixed(2),(o.blind_classes||[]).join(', ')||'—'])));
+    c.appendChild(el('h3',null,'Riepilogo del voto'));
+    c.appendChild(kv([['Più confident',v.most_confident_model.model+' → '+v.most_confident_model.predicted_class+' ('+pct(v.most_confident_model.confidence)+')'],['Modelli d\'accordo',v.models_agreeing_with_vote],['Seconda classe',v.runner_up_class],['Candidati ammessi per un override',(v.candidate_class_ids||[]).join(', ')],['Ciechi alla classe votata',(v.models_blind_to_vote_class||[]).join(', ')||'—']]));
+    c.appendChild(el('h3',null,'Memoria deterministica (stessa immagine, SHA-256)'));
+    if(img.past.length)c.appendChild(table(['Quando','Classe finale','Voto','Confidenza','Modelli'],img.past.map(r=>[r.timestamp,r.final_class,r.vote_class,r.confidence_level,(r.models||[]).join(', ')])));else c.appendChild(el('div','sub','Immagine mai vista prima.'));
+    c.appendChild(el('h3',null,'Knowledge base: passaggi recuperati ('+img.knowledge.length+')'));
+    img.knowledge.forEach(k=>c.appendChild(chunk(k,used.has(k.chunk_id))));
+    box.appendChild(c);
+  });
+}
+function renderReviewer(p){
+  const box=$('#readable');
+  const h=el('div','card');h.append(el('h2',null,'Cosa riceve il reviewer'));
+  h.appendChild(kv([['Richiesta',p.request||'—'],['Tester',p.tester_reasoner],['Racconto del processo richiesto',p.explain_process?'sì':'no'],['Sintesi del tester',p.tester_summary||'—']]));box.appendChild(h);
+  p.images.forEach(img=>{
+    const c=el('div','card'),f=img.final,v=img.vote,d=img.decisive_model;
+    c.appendChild(imgHead(img.file,'Decisione del tester: '+f.final_class+' · confidenza '+f.confidence_level+(f.overridden?' · override del voto':'')));
+    c.appendChild(el('h3',null,'Motivazione del tester (da verificare)'));c.appendChild(el('p','rationale',f.rationale));
+    c.appendChild(el('h3',null,'Voto'));c.appendChild(bars(v.soft_vote,v.vote_class));
+    c.appendChild(el('h3',null,'Modello decisivo: quota del punteggio della classe finale'));c.appendChild(bars(d.contributions,d.model));
+    c.appendChild(kv([['Modello decisivo',d.model],['Probabilità per la classe finale',pct(d.probability_for_final_class)],['Precision / recall val su questa classe',d.val_precision_for_final_class.toFixed(2)+' / '+d.val_recall_for_final_class.toFixed(2)],['Addestramento',d.epoch+' epoche, '+d.optimizer+', class_weight='+d.class_weight],['Il modello più forte concorda',d.strongest_model+': '+(d.strongest_model_agrees?'sì':'no, indica '+d.strongest_model_top_class)]]));
+    c.appendChild(el('h3',null,'Controlli automatici (fatti calcolati in codice)'));c.appendChild(issues(img.automatic_checks));
+    c.appendChild(el('h3',null,'Memoria deterministica'));
+    if(img.past.length)c.appendChild(table(['Quando','Classe finale','Voto','Confidenza'],img.past.map(r=>[r.timestamp,r.final_class,r.vote_class,r.confidence_level])));else c.appendChild(el('div','sub','Immagine mai vista prima.'));
+    c.appendChild(el('h3',null,'Passaggi citati dal tester ('+img.cited_by_tester.length+')'));
+    if(img.cited_by_tester.length)img.cited_by_tester.forEach(k=>c.appendChild(chunk(k)));else c.appendChild(el('div','sub','Il tester non ha citato passaggi.'));
+    c.appendChild(el('h3',null,'Knowledge base recuperata in modo indipendente ('+img.independent_kb.length+')'));
+    img.independent_kb.forEach(k=>c.appendChild(chunk(k)));
+    box.appendChild(c);
+  });
+  const t=el('div','card');t.append(el('h2',null,'Traccia completa del tester'),el('div','sub','Le stesse righe stampate con -v: il reviewer la legge per intero.'));
+  const det=el('details');det.append(el('summary',null,'mostra ('+p.trace.split('\n').length+' righe)'),el('pre',null,p.trace));t.appendChild(det);box.appendChild(t);
+}
+function renderOutput(ctx){
+  const box=$('#outputPanel');box.innerHTML='';
+  if(ctx.status==='running'){box.appendChild(el('div','empty','L\'agente sta ancora ragionando: la risposta compare qui appena arriva.'));return}
+  if(ctx.error){const n=el('div','note');n.style.borderLeftColor='var(--danger)';n.textContent='Errore: '+ctx.error;box.appendChild(n)}
+  const out=ctx.output||{};
+  if(step==='tester.reason'){
+    (out.final||[]).forEach(f=>{const c=el('div','card');c.appendChild(imgHead(f.file,f.final_class+' · confidenza '+f.confidence_level+(f.overridden?' · override del voto ('+f.vote_class+')':'')));c.appendChild(el('h3',null,'Motivazione'));c.appendChild(el('p','rationale',f.rationale));c.appendChild(kv([['Prossimo passo',f.suggested_next_step],['Fonti citate',(f.sources||[]).map(s=>s.chunk_id).join(', ')||'—']]));box.appendChild(c)});
+    (out.rejected_overrides||[]).forEach(r=>{const n=el('div','note');n.textContent='Override rifiutato dal codice per '+r.file+': classe '+r.proposed_class_id+' non tra i candidati '+r.candidates.join(', ');box.appendChild(n)});
+  }else{
+    const rv=out.review||{};
+    if(rv.process_summary){const c=el('div','card');c.append(el('h2',null,'Racconto del processo'),el('p','rationale',rv.process_summary));box.appendChild(c)}
+    (rv.images||[]).forEach(r=>{const c=el('div','card');c.appendChild(imgHead(r.file,r.verdict==='consistent'?'✓ coerente':'⚠ criticità trovate'));c.appendChild(el('h3',null,'Sintesi per l\'utente'));c.appendChild(el('p','rationale',r.user_summary));c.appendChild(el('h3',null,'Modello decisivo'));c.appendChild(el('p','rationale',r.decisive_model_explanation));c.appendChild(el('h3',null,'Criticità aggiunte dal reviewer'));c.appendChild(issues(r.issues));box.appendChild(c)});
+  }
+  const raw=el('div','card');raw.append(el('h2',null,'Risposta grezza dell\'LLM'),el('div','sub',out.llm_raw?'Prima della validazione in codice.':'Nessun LLM in questo passo: la risposta sopra è deterministica.'));
+  if(out.llm_raw)raw.appendChild(el('pre',null,JSON.stringify(out.llm_raw,null,1)));box.appendChild(raw);
+}
+function render(){
+  const ctx=data.context;
+  if(!ctx){$('#subtitle').textContent='Job '+job+' · il passo non è ancora partito';$('#readable').innerHTML='';$('#readable').appendChild(el('div','empty','Questo passo non è ancora iniziato. La pagina si aggiorna da sola.'));return}
+  const tester=step==='tester.reason';
+  $('#mark').textContent=tester?'TA':'RA';
+  $('#title').textContent=(tester?'Testing agent · Ragionamento':'Reviewer agent · Verifica di coerenza');
+  const elapsed=((ctx.finished||Date.now()/1000)-ctx.started);
+  $('#subtitle').textContent='Job '+data.job+' · nodo '+ctx.node+' · '+(ctx.status==='running'?'in corso da ':'durata ')+fmtTime(elapsed);
+  const pills=$('#pills');pills.innerHTML='';
+  pills.append(el('span','pill '+ctx.status,{running:'sta ragionando',done:'completato',error:'errore'}[ctx.status]),el('span','pill',ctx.model?'LLM: '+ctx.model:'nessun LLM'));
+  const p=ctx.payload,json=JSON.stringify(p,null,1),chars=JSON.stringify(p).length+ctx.system.length;
+  const nChunks=(p.images||[]).reduce((a,i)=>a+(i.knowledge||i.independent_kb||[]).length+(i.cited_by_tester||[]).length,0);
+  const st=$('#stats');st.innerHTML='';
+  [[(p.images||[]).length,'immagini'],tester?[(p.ensemble||[]).length,'modelli nell\'ensemble']:[(p.trace||'').split('\n').length,'righe di traccia del tester'],[nChunks,'passaggi della KB nel contesto'],[chars.toLocaleString('it'),'caratteri (prompt + dati)'],['~'+Math.round(chars/3.5).toLocaleString('it'),'token stimati']].forEach(([b,s])=>{const d=el('div','stat');d.append(el('b',null,b),el('span',null,s));st.appendChild(d)});
+  const note=$('#note');note.innerHTML='';
+  const n=el('div','note');n.textContent=ctx.model?(tester?'Questo è esattamente ciò che l\'LLM riceve: il prompt di sistema e il payload JSON qui sotto. Non vede le immagini, solo questi dati.':'Il reviewer riceve la traccia completa del tester, le sue decisioni, i controlli calcolati in codice e passaggi della KB cercati in modo indipendente. Non vede le immagini.'):'In questa esecuzione non c\'è un LLM: questi sono i dati su cui ha lavorato la regola deterministica (voto pesato / controlli automatici). Con un LLM riceverebbe esattamente questo contesto.';note.appendChild(n);
+  const key=ctx.status+JSON.stringify(ctx.output||'').length;
+  if(rendered!==key){
+    $('#readable').innerHTML='';if(p.error){$('#readable').appendChild(el('div','empty',p.error))}else if(tester)renderTester(p);else renderReviewer(p);
+    $('#systemText').textContent=ctx.system;$('#payloadText').textContent=json;
+    $('#payloadInfo').textContent='Inviato come messaggio utente, '+JSON.stringify(p).length.toLocaleString('it')+' caratteri';
+    renderOutput(ctx);rendered=key;
+  }
+  const other=tester?'reviewer.review':'tester.reason';
+  if((data.available||[]).includes(other)){const b=$('#switchStep');b.hidden=false;b.textContent=(tester?'Apri la verifica del reviewer':'Apri il ragionamento del tester')+' →';b.onclick=()=>{location.search='?job='+encodeURIComponent(job)+'&step='+other}}
+}
+async function load(){
+  try{
+    const r=await fetch('/api/context?job='+encodeURIComponent(job)+'&step='+encodeURIComponent(step));
+    data=await r.json();if(!r.ok)throw new Error(data.error||'errore');
+    render();
+    const ctx=data.context,jobLive=['running','waiting_human'].includes(data.job_status);
+    clearTimeout(timer);
+    if((!ctx&&jobLive)||ctx?.status==='running')timer=setTimeout(load,1500);   // stop once the step is over
+  }catch(e){$('#subtitle').textContent='Impossibile caricare il contesto: '+e.message}
+}
+document.querySelectorAll('nav [data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav [data-tab]').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==b.dataset.tab)});
+document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{const t=b.dataset.copy==='system'?$('#systemText').textContent:$('#payloadText').textContent;try{await navigator.clipboard.writeText(t);b.textContent='Copiato'}catch(e){b.textContent='Copia non disponibile'}setTimeout(()=>b.textContent='Copia',1500)});
+if(!job){$('#subtitle').textContent='Nessun job indicato.'}else load();
+</script>
+</body></html>

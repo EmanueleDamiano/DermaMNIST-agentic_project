@@ -1,0 +1,292 @@
+{
+ "created_at": "2026-09-24T18:59:07+0200",
+ "description": "Training knowledge base: arXiv abstracts (verified by id and title) and this project's own domain notes.",
+ "sources": [
+  {
+   "id": "arXiv:2110.14795",
+   "kind": "paper",
+   "title": "MedMNIST v2 -- A large-scale lightweight benchmark for 2D and 3D biomedical image classification",
+   "url": "https://arxiv.org/abs/2110.14795",
+   "citation": "Yang et al., arXiv 2021",
+   "topic": "dataset, benchmark protocol and baselines",
+   "chunks": [
+    "We introduce MedMNIST v2, a large-scale MNIST-like dataset collection of standardized biomedical images, including 12 datasets for 2D and 6 datasets for 3D. All images are pre-processed into a small size of 28x28 (2D) or 28x28x28 (3D) with the corresponding classification labels so that no background knowledge is required for users. Covering primary data modalities in biomedical images, MedMNIST v2 is designed to perform classification on lightweight 2D and 3D images with various dataset scales (from 100 to 100,000) and diverse tasks (binary/multi-class, ordinal regression, and multi-label). The resulting dataset, consisting of 708,069 2D images and 10,214 3D images in total, could support numerous research / educational purposes in biomedical image analysis, computer vision, and machine learning. We benchmark several baseline methods on MedMNIST v2, including 2D / 3D neural networks and open-source / commercial AutoML tools. The data and code are publicly available at https://medmnist.com/."
+   ]
+  },
+  {
+   "id": "arXiv:1803.10417",
+   "kind": "paper",
+   "title": "The HAM10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions",
+   "url": "https://arxiv.org/abs/1803.10417",
+   "citation": "Tschandl et al., arXiv 2018",
+   "topic": "source dataset, class distribution",
+   "chunks": [
+    "Training of neural networks for automated diagnosis of pigmented skin lesions is hampered by the small size and lack of diversity of available datasets of dermatoscopic images. We tackle this problem by releasing the HAM10000 (\"Human Against Machine with 10000 training images\") dataset. We collected dermatoscopic images from different populations acquired and stored by different modalities. Given this diversity we had to apply different acquisition and cleaning methods and developed semi-automatic workflows utilizing specifically trained neural networks. The final dataset consists of 10015 dermatoscopic images which are released as a training set for academic machine learning purposes and are publicly available through the ISIC archive. This benchmark dataset can be used for machine learning and for comparisons with human experts. Cases include a representative collection of all important diagnostic categories in the realm of pigmented lesions. More than 50% of lesions have been confirmed by pathology, while the ground truth for the rest of the cases was either follow-up, expert consensus, or confirmation by in-vivo confocal microscopy."
+   ]
+  },
+  {
+   "id": "arXiv:2401.14497",
+   "kind": "paper",
+   "title": "Investigating the Quality of DermaMNIST and Fitzpatrick17k Dermatological Image Datasets",
+   "url": "https://arxiv.org/abs/2401.14497",
+   "citation": "Abhishek et al., arXiv 2024",
+   "topic": "duplicates and leakage across splits",
+   "chunks": [
+    "The remarkable progress of deep learning in dermatological tasks has brought us closer to achieving diagnostic accuracies comparable to those of human experts. However, while large datasets play a crucial role in the development of reliable deep neural network models, the quality of data therein and their correct usage are of paramount importance. Several factors can impact data quality, such as the presence of duplicates, data leakage across train-test partitions, mislabeled images, and the absence of a well-defined test partition. In this paper, we conduct meticulous analyses of three popular dermatological image datasets: DermaMNIST, its source HAM10000, and Fitzpatrick17k, uncovering these data quality issues, measure the effects of these problems on the benchmark results, and propose corrections to the datasets. Besides ensuring the reproducibility of our analysis, by making our analysis pipeline and the accompanying code publicly available, we aim to encourage similar explorations and to facilitate the identification and addressing of potential data quality issues in other large datasets."
+   ]
+  },
+  {
+   "id": "arXiv:1809.01442",
+   "kind": "paper",
+   "title": "Data Augmentation for Skin Lesion Analysis",
+   "url": "https://arxiv.org/abs/1809.01442",
+   "citation": "Perez et al., arXiv 2018",
+   "topic": "which augmentations help skin lesion classifiers",
+   "chunks": [
+    "Deep learning models show remarkable results in automated skin lesion analysis. However, these models demand considerable amounts of data, while the availability of annotated skin lesion images is often limited. Data augmentation can expand the training dataset by transforming input images. In this work, we investigate the impact of 13 data augmentation scenarios for melanoma classification trained on three CNNs (Inception-v4, ResNet, and DenseNet). Scenarios include traditional color and geometric transforms, and more unusual augmentations such as elastic transforms, random erasing and a novel augmentation that mixes different lesions. We also explore the use of data augmentation at test-time and the impact of data augmentation on various dataset sizes. Our results confirm the importance of data augmentation in both training and testing and show that it can lead to more performance gains than obtaining new images. The best scenario results in an AUC of 0.882 for melanoma classification without using external data, outperforming the top-ranked submission (0.874) for the ISIC Challenge 2017, which was trained with additional data."
+   ]
+  },
+  {
+   "id": "arXiv:1901.05555",
+   "kind": "paper",
+   "title": "Class-Balanced Loss Based on Effective Number of Samples",
+   "url": "https://arxiv.org/abs/1901.05555",
+   "citation": "Cui et al., arXiv 2019",
+   "topic": "effective-number class weighting",
+   "chunks": [
+    "With the rapid increase of large-scale, real-world datasets, it becomes critical to address the problem of long-tailed data distribution (i.e., a few classes account for most of the data, while most classes are under-represented). Existing solutions typically adopt class re-balancing strategies such as re-sampling and re-weighting based on the number of observations for each class. In this work, we argue that as the number of samples increases, the additional benefit of a newly added data point will diminish. We introduce a novel theoretical framework to measure data overlap by associating with each sample a small neighboring region rather than a single point. The effective number of samples is defined as the volume of samples and can be calculated by a simple formula $(1-β^{n})/(1-β)$, where $n$ is the number of samples and $β\\in [0,1)$ is a hyperparameter. We design a re-weighting scheme that uses the effective number of samples for each class to re-balance the loss, thereby yielding a class-balanced loss. Comprehensive experiments are conducted on artificially induced long-tailed CIFAR datasets and large-scale datasets including ImageNet and iNaturalist. Our results show that when trained with the proposed class-balanced loss, the network is able to achieve significant performance gains on long-tailed datasets."
+   ]
+  },
+  {
+   "id": "arXiv:1708.02002",
+   "kind": "paper",
+   "title": "Focal Loss for Dense Object Detection",
+   "url": "https://arxiv.org/abs/1708.02002",
+   "citation": "Lin et al., arXiv 2017",
+   "topic": "down-weighting easy majority examples",
+   "chunks": [
+    "The highest accuracy object detectors to date are based on a two-stage approach popularized by R-CNN, where a classifier is applied to a sparse set of candidate object locations. In contrast, one-stage detectors that are applied over a regular, dense sampling of possible object locations have the potential to be faster and simpler, but have trailed the accuracy of two-stage detectors thus far. In this paper, we investigate why this is the case. We discover that the extreme foreground-background class imbalance encountered during training of dense detectors is the central cause. We propose to address this class imbalance by reshaping the standard cross entropy loss such that it down-weights the loss assigned to well-classified examples. Our novel Focal Loss focuses training on a sparse set of hard examples and prevents the vast number of easy negatives from overwhelming the detector during training. To evaluate the effectiveness of our loss, we design and train a simple dense detector we call RetinaNet. Our results show that when trained with the focal loss, RetinaNet is able to match the speed of previous one-stage detectors while surpassing the accuracy of all existing state-of-the-art two-stage detectors. Code is at: https://github.com/facebookresearch/Detectron."
+   ]
+  },
+  {
+   "id": "arXiv:1710.05381",
+   "kind": "paper",
+   "title": "A systematic study of the class imbalance problem in convolutional neural networks",
+   "url": "https://arxiv.org/abs/1710.05381",
+   "citation": "Buda et al., arXiv 2017",
+   "topic": "oversampling vs weighting in CNNs",
+   "chunks": [
+    "In this study, we systematically investigate the impact of class imbalance on classification performance of convolutional neural networks (CNNs) and compare frequently used methods to address the issue. Class imbalance is a common problem that has been comprehensively studied in classical machine learning, yet very limited systematic research is available in the context of deep learning. In our study, we use three benchmark datasets of increasing complexity, MNIST, CIFAR-10 and ImageNet, to investigate the effects of imbalance on classification and perform an extensive comparison of several methods to address the issue: oversampling, undersampling, two-phase training, and thresholding that compensates for prior class probabilities. Our main evaluation metric is area under the receiver operating characteristic curve (ROC AUC) adjusted to multi-class tasks since overall accuracy metric is associated with notable difficulties in the context of imbalanced data. Based on results from our experiments we conclude that (i) the effect of class imbalance on classification performance is detrimental; (ii) the method of addressing class imbalance that emerged as dominant in almost all analyzed scenarios was oversampling; (iii) oversampling should be applied to the level that completely eliminates the imbalance, whereas the optimal undersampling ratio depends on the extent of imbalance; (iv) as opposed to some classical machine learning models, oversampling does not cause overfitting of CNNs; (v) thresholding should be applied to compensate for prior class probabilities when overall number of properly classified cases is of interest."
+   ]
+  },
+  {
+   "id": "arXiv:1711.05101",
+   "kind": "paper",
+   "title": "Decoupled Weight Decay Regularization",
+   "url": "https://arxiv.org/abs/1711.05101",
+   "citation": "Loshchilov and Hutter, arXiv 2017",
+   "topic": "AdamW",
+   "chunks": [
+    "L$_2$ regularization and weight decay regularization are equivalent for standard stochastic gradient descent (when rescaled by the learning rate), but as we demonstrate this is \\emph{not} the case for adaptive gradient algorithms, such as Adam. While common implementations of these algorithms employ L$_2$ regularization (often calling it \"weight decay\" in what may be misleading due to the inequivalence we expose), we propose a simple modification to recover the original formulation of weight decay regularization by \\emph{decoupling} the weight decay from the optimization steps taken w.r.t. the loss function. We provide empirical evidence that our proposed modification (i) decouples the optimal choice of weight decay factor from the setting of the learning rate for both standard SGD and Adam and (ii) substantially improves Adam's generalization performance, allowing it to compete with SGD with momentum on image classification datasets (on which it was previously typically outperformed by the latter). Our proposed decoupled weight decay has already been adopted by many researchers, and the community has implemented it in TensorFlow and PyTorch; the complete source code for our experiments is available at https://github.com/loshchil/AdamW-and-SGDW"
+   ]
+  },
+  {
+   "id": "arXiv:1608.03983",
+   "kind": "paper",
+   "title": "SGDR: Stochastic Gradient Descent with Warm Restarts",
+   "url": "https://arxiv.org/abs/1608.03983",
+   "citation": "Loshchilov and Hutter, arXiv 2016",
+   "topic": "cosine schedule and warm restarts",
+   "chunks": [
+    "Restart techniques are common in gradient-free optimization to deal with multimodal functions. Partial warm restarts are also gaining popularity in gradient-based optimization to improve the rate of convergence in accelerated gradient schemes to deal with ill-conditioned functions. In this paper, we propose a simple warm restart technique for stochastic gradient descent to improve its anytime performance when training deep neural networks. We empirically study its performance on the CIFAR-10 and CIFAR-100 datasets, where we demonstrate new state-of-the-art results at 3.14% and 16.21%, respectively. We also demonstrate its advantages on a dataset of EEG recordings and on a downsampled version of the ImageNet dataset. Our source code is available at https://github.com/loshchil/SGDR"
+   ]
+  },
+  {
+   "id": "arXiv:1506.01186",
+   "kind": "paper",
+   "title": "Cyclical Learning Rates for Training Neural Networks",
+   "url": "https://arxiv.org/abs/1506.01186",
+   "citation": "Smith, arXiv 2015",
+   "topic": "learning-rate range test",
+   "chunks": [
+    "It is known that the learning rate is the most important hyper-parameter to tune for training deep neural networks. This paper describes a new method for setting the learning rate, named cyclical learning rates, which practically eliminates the need to experimentally find the best values and schedule for the global learning rates. Instead of monotonically decreasing the learning rate, this method lets the learning rate cyclically vary between reasonable boundary values. Training with cyclical learning rates instead of fixed values achieves improved classification accuracy without a need to tune and often in fewer iterations. This paper also describes a simple way to estimate \"reasonable bounds\" -- linearly increasing the learning rate of the network for a few epochs. In addition, cyclical learning rates are demonstrated on the CIFAR-10 and CIFAR-100 datasets with ResNets, Stochastic Depth networks, and DenseNets, and the ImageNet dataset with the AlexNet and GoogLeNet architectures. These are practical tools for everyone who trains neural networks."
+   ]
+  },
+  {
+   "id": "arXiv:1803.09820",
+   "kind": "paper",
+   "title": "A disciplined approach to neural network hyper-parameters: Part 1 -- learning rate, batch size, momentum, and weight decay",
+   "url": "https://arxiv.org/abs/1803.09820",
+   "citation": "Smith, arXiv 2018",
+   "topic": "lr, batch size, momentum, weight decay",
+   "chunks": [
+    "Although deep learning has produced dazzling successes for applications of image, speech, and video processing in the past few years, most trainings are with suboptimal hyper-parameters, requiring unnecessarily long training times. Setting the hyper-parameters remains a black art that requires years of experience to acquire. This report proposes several efficient ways to set the hyper-parameters that significantly reduce training time and improves performance. Specifically, this report shows how to examine the training validation/test loss function for subtle clues of underfitting and overfitting and suggests guidelines for moving toward the optimal balance point. Then it discusses how to increase/decrease the learning rate/momentum to speed up training. Our experiments show that it is crucial to balance every manner of regularization for each dataset and architecture. Weight decay is used as a sample regularizer to show how its optimal value is tightly coupled with the learning rates and momentums. Files to help replicate the results reported here are available."
+   ]
+  },
+  {
+   "id": "arXiv:1706.02677",
+   "kind": "paper",
+   "title": "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour",
+   "url": "https://arxiv.org/abs/1706.02677",
+   "citation": "Goyal et al., arXiv 2017",
+   "topic": "linear lr scaling with batch size, warmup",
+   "chunks": [
+    "Deep learning thrives with large neural networks and large datasets. However, larger networks and larger datasets result in longer training times that impede research and development progress. Distributed synchronous SGD offers a potential solution to this problem by dividing SGD minibatches over a pool of parallel workers. Yet to make this scheme efficient, the per-worker workload must be large, which implies nontrivial growth in the SGD minibatch size. In this paper, we empirically show that on the ImageNet dataset large minibatches cause optimization difficulties, but when these are addressed the trained networks exhibit good generalization. Specifically, we show no loss of accuracy when training with large minibatch sizes up to 8192 images. To achieve this result, we adopt a hyper-parameter-free linear scaling rule for adjusting learning rates as a function of minibatch size and develop a new warmup scheme that overcomes optimization challenges early in training. With these simple techniques, our Caffe2-based system trains ResNet-50 with a minibatch size of 8192 on 256 GPUs in one hour, while matching small minibatch accuracy. Using commodity hardware, our implementation achieves ~90% scaling efficiency when moving from 8 to 256 GPUs. Our findings enable training visual recognition models on internet-scale data with high efficiency."
+   ]
+  },
+  {
+   "id": "arXiv:1609.04836",
+   "kind": "paper",
+   "title": "On Large-Batch Training for Deep Learning: Generalization Gap and Sharp Minima",
+   "url": "https://arxiv.org/abs/1609.04836",
+   "citation": "Keskar et al., arXiv 2016",
+   "topic": "generalisation gap of large batches",
+   "chunks": [
+    "The stochastic gradient descent (SGD) method and its variants are algorithms of choice for many Deep Learning tasks. These methods operate in a small-batch regime wherein a fraction of the training data, say $32$-$512$ data points, is sampled to compute an approximation to the gradient. It has been observed in practice that when using a larger batch there is a degradation in the quality of the model, as measured by its ability to generalize. We investigate the cause for this generalization drop in the large-batch regime and present numerical evidence that supports the view that large-batch methods tend to converge to sharp minimizers of the training and testing functions - and as is well known, sharp minima lead to poorer generalization. In contrast, small-batch methods consistently converge to flat minimizers, and our experiments support a commonly held view that this is due to the inherent noise in the gradient estimation. We discuss several strategies to attempt to help large-batch methods eliminate this generalization gap."
+   ]
+  },
+  {
+   "id": "arXiv:1812.01187",
+   "kind": "paper",
+   "title": "Bag of Tricks for Image Classification with Convolutional Neural Networks",
+   "url": "https://arxiv.org/abs/1812.01187",
+   "citation": "He et al., arXiv 2018",
+   "topic": "warmup, cosine decay, label smoothing",
+   "chunks": [
+    "Much of the recent progress made in image classification research can be credited to training procedure refinements, such as changes in data augmentations and optimization methods. In the literature, however, most refinements are either briefly mentioned as implementation details or only visible in source code. In this paper, we will examine a collection of such refinements and empirically evaluate their impact on the final model accuracy through ablation study. We will show that, by combining these refinements together, we are able to improve various CNN models significantly. For example, we raise ResNet-50's top-1 validation accuracy from 75.3% to 79.29% on ImageNet. We will also demonstrate that improvement on image classification accuracy leads to better transfer learning performance in other application domains such as object detection and semantic segmentation."
+   ]
+  },
+  {
+   "id": "arXiv:1708.04552",
+   "kind": "paper",
+   "title": "Improved Regularization of Convolutional Neural Networks with Cutout",
+   "url": "https://arxiv.org/abs/1708.04552",
+   "citation": "DeVries and Taylor, arXiv 2017",
+   "topic": "occlusion regularisation",
+   "chunks": [
+    "Convolutional neural networks are capable of learning powerful representational spaces, which are necessary for tackling complex learning tasks. However, due to the model capacity required to capture such representations, they are often susceptible to overfitting and therefore require proper regularization in order to generalize well. In this paper, we show that the simple regularization technique of randomly masking out square regions of input during training, which we call cutout, can be used to improve the robustness and overall performance of convolutional neural networks. Not only is this method extremely easy to implement, but we also demonstrate that it can be used in conjunction with existing forms of data augmentation and other regularizers to further improve model performance. We evaluate this method by applying it to current state-of-the-art architectures on the CIFAR-10, CIFAR-100, and SVHN datasets, yielding new state-of-the-art results of 2.56%, 15.20%, and 1.30% test error respectively. Code is available at https://github.com/uoguelph-mlrg/Cutout"
+   ]
+  },
+  {
+   "id": "arXiv:1710.09412",
+   "kind": "paper",
+   "title": "mixup: Beyond Empirical Risk Minimization",
+   "url": "https://arxiv.org/abs/1710.09412",
+   "citation": "Zhang et al., arXiv 2017",
+   "topic": "interpolation regularisation",
+   "chunks": [
+    "Large deep neural networks are powerful, but exhibit undesirable behaviors such as memorization and sensitivity to adversarial examples. In this work, we propose mixup, a simple learning principle to alleviate these issues. In essence, mixup trains a neural network on convex combinations of pairs of examples and their labels. By doing so, mixup regularizes the neural network to favor simple linear behavior in-between training examples. Our experiments on the ImageNet-2012, CIFAR-10, CIFAR-100, Google commands and UCI datasets show that mixup improves the generalization of state-of-the-art neural network architectures. We also find that mixup reduces the memorization of corrupt labels, increases the robustness to adversarial examples, and stabilizes the training of generative adversarial networks."
+   ]
+  },
+  {
+   "id": "arXiv:1906.02629",
+   "kind": "paper",
+   "title": "When Does Label Smoothing Help?",
+   "url": "https://arxiv.org/abs/1906.02629",
+   "citation": "Müller et al., arXiv 2019",
+   "topic": "label smoothing and calibration",
+   "chunks": [
+    "The generalization and learning speed of a multi-class neural network can often be significantly improved by using soft targets that are a weighted average of the hard targets and the uniform distribution over labels. Smoothing the labels in this way prevents the network from becoming over-confident and label smoothing has been used in many state-of-the-art models, including image classification, language translation and speech recognition. Despite its widespread use, label smoothing is still poorly understood. Here we show empirically that in addition to improving generalization, label smoothing improves model calibration which can significantly improve beam-search. However, we also observe that if a teacher network is trained with label smoothing, knowledge distillation into a student network is much less effective. To explain these observations, we visualize how label smoothing changes the representations learned by the penultimate layer of the network. We show that label smoothing encourages the representations of training examples from the same class to group in tight clusters. This results in loss of information in the logits about resemblances between instances of different classes, which is necessary for distillation, but does not hurt generalization or calibration of the model's predictions."
+   ]
+  },
+  {
+   "id": "arXiv:1512.03385",
+   "kind": "paper",
+   "title": "Deep Residual Learning for Image Recognition",
+   "url": "https://arxiv.org/abs/1512.03385",
+   "citation": "He et al., arXiv 2015",
+   "topic": "ResNet",
+   "chunks": [
+    "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously. We explicitly reformulate the layers as learning residual functions with reference to the layer inputs, instead of learning unreferenced functions. We provide comprehensive empirical evidence showing that these residual networks are easier to optimize, and can gain accuracy from considerably increased depth. On the ImageNet dataset we evaluate residual nets with a depth of up to 152 layers---8x deeper than VGG nets but still having lower complexity. An ensemble of these residual nets achieves 3.57% error on the ImageNet test set. This result won the 1st place on the ILSVRC 2015 classification task. We also present analysis on CIFAR-10 with 100 and 1000 layers. The depth of representations is of central importance for many visual recognition tasks. Solely due to our extremely deep representations, we obtain a 28% relative improvement on the COCO object detection dataset. Deep residual nets are foundations of our submissions to ILSVRC & COCO 2015 competitions, where we also won the 1st places on the tasks of ImageNet detection, ImageNet localization, COCO detection, and COCO segmentation."
+   ]
+  },
+  {
+   "id": "arXiv:1905.11946",
+   "kind": "paper",
+   "title": "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks",
+   "url": "https://arxiv.org/abs/1905.11946",
+   "citation": "Tan and Le, arXiv 2019",
+   "topic": "EfficientNet",
+   "chunks": [
+    "Convolutional Neural Networks (ConvNets) are commonly developed at a fixed resource budget, and then scaled up for better accuracy if more resources are available. In this paper, we systematically study model scaling and identify that carefully balancing network depth, width, and resolution can lead to better performance. Based on this observation, we propose a new scaling method that uniformly scales all dimensions of depth/width/resolution using a simple yet highly effective compound coefficient. We demonstrate the effectiveness of this method on scaling up MobileNets and ResNet. To go even further, we use neural architecture search to design a new baseline network and scale it up to obtain a family of models, called EfficientNets, which achieve much better accuracy and efficiency than previous ConvNets. In particular, our EfficientNet-B7 achieves state-of-the-art 84.3% top-1 accuracy on ImageNet, while being 8.4x smaller and 6.1x faster on inference than the best existing ConvNet. Our EfficientNets also transfer well and achieve state-of-the-art accuracy on CIFAR-100 (91.7%), Flowers (98.8%), and 3 other transfer learning datasets, with an order of magnitude fewer parameters. Source code is at https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet."
+   ]
+  },
+  {
+   "id": "arXiv:2201.03545",
+   "kind": "paper",
+   "title": "A ConvNet for the 2020s",
+   "url": "https://arxiv.org/abs/2201.03545",
+   "citation": "Liu et al., arXiv 2022",
+   "topic": "ConvNeXt",
+   "chunks": [
+    "The \"Roaring 20s\" of visual recognition began with the introduction of Vision Transformers (ViTs), which quickly superseded ConvNets as the state-of-the-art image classification model. A vanilla ViT, on the other hand, faces difficulties when applied to general computer vision tasks such as object detection and semantic segmentation. It is the hierarchical Transformers (e.g., Swin Transformers) that reintroduced several ConvNet priors, making Transformers practically viable as a generic vision backbone and demonstrating remarkable performance on a wide variety of vision tasks. However, the effectiveness of such hybrid approaches is still largely credited to the intrinsic superiority of Transformers, rather than the inherent inductive biases of convolutions. In this work, we reexamine the design spaces and test the limits of what a pure ConvNet can achieve. We gradually \"modernize\" a standard ResNet toward the design of a vision Transformer, and discover several key components that contribute to the performance difference along the way. The outcome of this exploration is a family of pure ConvNet models dubbed ConvNeXt. Constructed entirely from standard ConvNet modules, ConvNeXts compete favorably with Transformers in terms of accuracy and scalability, achieving 87.8% ImageNet top-1 accuracy and outperforming Swin Transformers on COCO detection and ADE20K segmentation, while maintaining the simplicity and efficiency of standard ConvNets."
+   ]
+  },
+  {
+   "id": "arXiv:2010.11929",
+   "kind": "paper",
+   "title": "An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale",
+   "url": "https://arxiv.org/abs/2010.11929",
+   "citation": "Dosovitskiy et al., arXiv 2020",
+   "topic": "ViT and its data hunger",
+   "chunks": [
+    "While the Transformer architecture has become the de-facto standard for natural language processing tasks, its applications to computer vision remain limited. In vision, attention is either applied in conjunction with convolutional networks, or used to replace certain components of convolutional networks while keeping their overall structure in place. We show that this reliance on CNNs is not necessary and a pure transformer applied directly to sequences of image patches can perform very well on image classification tasks. When pre-trained on large amounts of data and transferred to multiple mid-sized or small image recognition benchmarks (ImageNet, CIFAR-100, VTAB, etc.), Vision Transformer (ViT) attains excellent results compared to state-of-the-art convolutional networks while requiring substantially fewer computational resources to train."
+   ]
+  },
+  {
+   "id": "arXiv:2106.10270",
+   "kind": "paper",
+   "title": "How to train your ViT? Data, Augmentation, and Regularization in Vision Transformers",
+   "url": "https://arxiv.org/abs/2106.10270",
+   "citation": "Steiner et al., arXiv 2021",
+   "topic": "augmentation and regularisation for ViTs",
+   "chunks": [
+    "Vision Transformers (ViT) have been shown to attain highly competitive performance for a wide range of vision applications, such as image classification, object detection and semantic image segmentation. In comparison to convolutional neural networks, the Vision Transformer's weaker inductive bias is generally found to cause an increased reliance on model regularization or data augmentation (\"AugReg\" for short) when training on smaller training datasets. We conduct a systematic empirical study in order to better understand the interplay between the amount of training data, AugReg, model size and compute budget. As one result of this study we find that the combination of increased compute and AugReg can yield models with the same performance as models trained on an order of magnitude more training data: we train ViT models of various sizes on the public ImageNet-21k dataset which either match or outperform their counterparts trained on the larger, but not publicly available JFT-300M dataset."
+   ]
+  },
+  {
+   "id": "project:augment",
+   "kind": "project",
+   "title": "DermaMNIST augmentation policy (fpvit/augment.py)",
+   "url": "fpvit/augment.py",
+   "citation": "this project, fpvit/augment.py",
+   "topic": "label-preserving augmentation for dermoscopy",
+   "chunks": [
+    "The augmentation pipeline is described by one flat, JSON-serialisable `AugmentationConfig`. That shape is deliberate: a human passes `--aug-preset default`, while a tuning agent (or Optuna, or a random search) emits a dict of scalars, and both end up building the *same* pipeline through `resolve_augmentation()`. The resolved config is stored verbatim in `experiment_record.json`, so a run can be reproduced and two runs can be compared field by field. AUG_SEARCH_SPACE declares every field's type, range, default and the domain reason for its bounds AugmentationConfig.sample draws a valid random config from that space from_dict rejects unknown keys instead of ignoring them validate raises on out-of-range values, naming the field describe lists the ops actually applied, for logging",
+    "What this modality justifies ---------------------------- Dermoscopic images have **no canonical orientation** — the lesion is photographed in an arbitrary rotation. The full dihedral group (horizontal flip x vertical flip x 90-degree rotation = 8 variants) is therefore exactly label-preserving and free of interpolation artefacts. That is the cheapest real diversity available, and it matters most for the long tail: class 3 (dermatofibroma) has 80 training images. Colour, by contrast, *is* diagnostic signal in dermoscopy, and at 28x28 there is little of it to spare. Hue jitter is bounded tightly and defaults to 0.02; widening it can erase the distinction between pigmented classes.",
+    "What was removed and why ------------------------ The previous pipeline used `RandomCrop(28, padding=4)`, whose torchvision defaults are `fill=0, padding_mode=\"constant\"`. On a dataset whose mean pixel is (195, 137, 143) that injects a pure-black border into a bright skin image. Worse, it mimics a *real* artefact: part of HAM10000 has dermoscope vignetting (dark corners), so the augmentation was teaching the model that dark borders are ignorable noise exactly where they are a device-correlated confound. `RandomResizedCrop` replaces it: it samples a region *inside* the image, so translation and scaling need no fill at all.",
+    "Every geometric op that cannot avoid a border (arbitrary-angle rotation) fills with the dataset mean colour rather than black, for the same reason."
+   ]
+  },
+  {
+   "id": "project:aug_search_space",
+   "kind": "project",
+   "title": "Augmentation search space and the domain reason for each bound",
+   "url": "fpvit/augment.py#AUG_SEARCH_SPACE",
+   "citation": "this project, AUG_SEARCH_SPACE",
+   "topic": "bounds of each augmentation field",
+   "chunks": [
+    "Augmentation field horizontal_flip (range 0.0 to 0.5, default 0.5): label-preserving; 0.5 is the natural maximum for a flip\nAugmentation field vertical_flip (range 0.0 to 0.5, default 0.5): dermoscopy has no canonical orientation, so this is free diversity\nAugmentation field rotate_90 (range None, default True): exact rotation, no interpolation or fill; completes the dihedral group\nAugmentation field rotation_degrees (range 0.0 to 30.0, default 0.0): arbitrary angles need a fill colour and blur a 28x28 image; prefer rotate_90 and keep this small or zero",
+    "Augmentation field random_resized_crop (range None, default True): provides translation and scaling without any border fill\nAugmentation field rrc_scale_min (range 0.6 to 1.0, default 0.8): lower bound on kept area; below ~0.6 a 28x28 image is upscaled from fewer than 22x22 px and detail is interpolated away\nAugmentation field rrc_scale_max (range 0.6 to 1.0, default 1.0): keep at 1.0 so the untouched image stays in the distribution\nAugmentation field rrc_ratio_min (range 0.75 to 1.0, default 0.9): aspect distortion changes lesion shape, which is diagnostic (the 'A' and 'B' of ABCD); stay near 1.0",
+    "Augmentation field rrc_ratio_max (range 1.0 to 1.33, default 1.111): as rrc_ratio_min\nAugmentation field color_jitter (range None, default True): guards against per-device colour balance, but see cj_hue\nAugmentation field cj_brightness (range 0.0 to 0.3, default 0.1): illumination varies between acquisitions, so some is realistic\nAugmentation field cj_contrast (range 0.0 to 0.3, default 0.1): as cj_brightness",
+    "Augmentation field cj_saturation (range 0.0 to 0.3, default 0.1): saturation carries pigmentation information; keep it modest\nAugmentation field cj_hue (range 0.0 to 0.05, default 0.02): TIGHT ON PURPOSE. Hue is diagnostic signal in dermoscopy (pigmented vs vascular vs keratotic); large shifts move an image towards another class's appearance and corrupt the label\nAugmentation field cutout (range None, default False): from the paper's recipe, but it is a regulariser: it only pays off once train accuracy exceeds validation accuracy\nAugmentation field cutout_size (range 4 to 12, default 8): 8 on a 28x28 image occludes up to 8.2% of the pixels",
+    "Augmentation field cutout_p (range 0.0 to 1.0, default 0.5): probability of occluding at all"
+   ]
+  },
+  {
+   "id": "project:train",
+   "kind": "project",
+   "title": "Training protocol notes: imbalance, selection, stopping (train.py)",
+   "url": "train.py",
+   "citation": "this project, train.py",
+   "topic": "class imbalance levers, selection metric, early stopping",
+   "chunks": [
+    "This script is written to fit the \"Training Agent\" contract described in the AgenticDerma project proposal (WP3): it takes a fixed data split, a fixed experiment policy (config below), trains with a stored random seed, and writes a versioned experiment record (config + metrics + checkpoint path) to `<out>/experiment_record.json` so the run can be reproduced and compared by the Evaluation Agent later. It does not access the test split. Monitoring artefacts written into `<out>`, all refreshed *every epoch* so a long run that is interrupted keeps everything logged up to that point:",
+    "experiment_record.json full record: config, seed, per-epoch history (including per-class precision/recall/F1 and the confusion matrix), best epoch, stop reason, resume state metrics.csv one flat row per epoch, for plotting / `tail -f` best_model.pt weights at the best value of --select-on last_model.pt weights + optimizer/scheduler/RNG state, so an interrupted run can continue with `--resume` train.log optional copy of stdout, with `--log-file` and one line appended to a shared index (default `<out>/../index.jsonl`) when the run ends, so a tuning agent can read the whole campaign's history without reopening every per-run record.",
+    "--select-on which validation metric picks `best_model.pt`. macro-AUC (the default, and the paper's headline metric) is weakly sensitive to imbalance: it is possible for the selected checkpoint to have a worse balanced accuracy than a later one. --early-stop-patience stop once that metric has stopped improving --max-seconds stop once a wall-clock budget is spent, so a scheduler (successive halving / ASHA) can hand every configuration a fixed slice of time Because DermaMNIST is heavily imbalanced (67 % melanocytic nevi), the per-class metrics are the ones that actually tell you whether the rare classes are being learned; plain accuracy sits near the majority-class baseline of 0.669 even for a model that has collapsed onto one class. `--class-weight` and `--balanced-sampler` are the two levers against that imbalance; both are deviations from the paper's recipe, so they default to off and are recorded in the experiment record when used.",
+    "--aug-preset none|dihedral|default|strong|paper --aug-config '{\"cj_hue\": 0.01, ...}' (inline JSON, or a path to a file, or a previous experiment_record.json) --aug-set cj_hue=0.01 --aug-set cutout=true (repeatable) The resolved config is stored field by field under \"augmentation\" in experiment_record.json and in both checkpoints, so a run is repeatable by feeding that file back through --aug-config. See fpvit/augment.py for the search space a tuning agent should sample from."
+   ]
+  }
+ ],
+ "failures": []
+}

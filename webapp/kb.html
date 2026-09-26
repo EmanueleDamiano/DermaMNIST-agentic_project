@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Knowledge base · DermaAgent</title>
+  <style>
+    :root{
+      --ink:#1a1c1f;--ink-soft:#4d5157;--muted:#8a8d93;--line:#e6e4e0;--line-soft:#efeee9;
+      --surface:#ffffff;--canvas:#f6f5f1;--canvas-alt:#efeee7;
+      --accent:#4338ca;--accent-strong:#332c9e;--accent-soft:#edecfb;
+      --good:#0f8a5f;--good-soft:#e5f5ee;--warn:#b5760f;--warn-soft:#fbf1de;
+      --radius-sm:8px;--radius-md:13px;--radius-pill:999px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased}
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer;background:none}
+    header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 22px}
+    .top{display:flex;align-items:center;gap:12px;max-width:1000px;margin:0 auto}
+    .mark{width:32px;height:32px;border-radius:9px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none}
+    .title h1{margin:0;font-size:15px;font-weight:650}
+    .title p{margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+    .search{max-width:1000px;margin:12px auto 0;display:flex;gap:8px}
+    .search input{flex:1;border:1px solid var(--line);border-radius:var(--radius-pill);padding:9px 15px;font-size:13px;outline:0;background:var(--canvas)}
+    .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface)}
+    .search button{border:0;background:var(--ink);color:#fff;border-radius:var(--radius-pill);padding:0 18px;font-size:12.5px;font-weight:600}
+    main{max-width:1000px;margin:0 auto;padding:18px 22px 60px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+    .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:10px 12px}
+    .stat b{display:block;font-size:17px;font-weight:650}
+    .stat span{font-size:10.5px;color:var(--muted)}
+    .note{font-size:12px;line-height:1.6;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:16px}
+    h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:22px 0 9px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-pill);padding:6px 12px;font-size:11.5px;font-weight:600}
+    .chip:hover,.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-strong)}
+    .query{font:11px var(--mono);color:var(--muted);margin:10px 0 8px;word-break:break-word}
+    .result{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px}
+    .result .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:10.5px;color:var(--muted);margin-bottom:6px}
+    .result .meta code{font:10.5px var(--mono);color:var(--accent-strong);background:var(--accent-soft);padding:1px 6px;border-radius:5px}
+    .score{display:inline-flex;align-items:center;gap:6px}
+    .score i{display:inline-block;width:70px;height:5px;border-radius:var(--radius-pill);background:var(--line-soft);overflow:hidden;position:relative}
+    .score i b{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+    .result p,.chunk p{margin:0;font-size:12.5px;line-height:1.65;color:var(--ink-soft);white-space:pre-wrap}
+    mark{background:#fff1b8;color:inherit;border-radius:3px;padding:0 1px}
+    .source{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden}
+    .source summary{list-style:none;cursor:pointer;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 12px}
+    .source summary::-webkit-details-marker{display:none}
+    .source summary strong{font-size:13px;font-weight:650}
+    .source summary span{font-size:11px;color:var(--muted)}
+    .source summary em{grid-row:1/3;grid-column:2;align-self:center;font-style:normal;font-size:11px;font-weight:600;color:var(--accent-strong);background:var(--accent-soft);border-radius:var(--radius-pill);padding:4px 10px}
+    .source[open] summary{border-bottom:1px solid var(--line-soft)}
+    .source .body{padding:10px 14px 14px}
+    .source .body a{font-size:11px;color:var(--accent-strong)}
+    .chunk{border-top:1px solid var(--line-soft);padding:10px 0}
+    .chunk:first-of-type{border-top:0}
+    .chunk code{font:10.5px var(--mono);color:var(--muted);display:block;margin-bottom:4px}
+    .empty{font-size:12px;color:var(--muted);padding:8px 0}
+    @media(max-width:640px){header{padding:12px 14px}main{padding:14px}}
+  </style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="mark">KB</div>
+    <div class="title"><h1>Knowledge base</h1><p id="subtitle">Memoria da retrieval degli agenti · caricamento…</p></div>
+  </div>
+  <form class="search" id="searchForm">
+    <input id="q" type="search" placeholder="Cerca come cercherebbe un agente, es. blue-white veil, arborizing vessels…" autocomplete="off">
+    <button type="submit">Cerca</button>
+  </form>
+</header>
+<main>
+  <div class="stats" id="stats"></div>
+  <div class="note" id="method"></div>
+
+  <h2>Cosa recupera l'agente per ogni classe</h2>
+  <div class="chips" id="classChips"></div>
+  <div id="results"><div class="empty">Scegli una classe o scrivi una ricerca: i risultati sono ordinati con lo stesso punteggio usato dagli agenti.</div></div>
+
+  <h2>Fonti</h2>
+  <div id="sources"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+let kb=null;
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined&&text!==null)e.textContent=String(text);return e}
+function highlight(text,query){
+  const terms=[...new Set((query||'').toLowerCase().match(/[a-zà-ù0-9-]{4,}/g)||[])].filter(t=>!['dermoscopy','with','from','that','this'].includes(t));
+  const p=el('p');if(!terms.length){p.textContent=text;return p}
+  const re=new RegExp('('+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
+  text.split(re).forEach((part,i)=>{p.appendChild(i%2?el('mark',null,part):document.createTextNode(part))});
+  return p;
+}
+function renderResults(data,label){
+  const box=$('#results');box.innerHTML='';
+  box.appendChild(el('div','query',(label?label+' · ':'')+'query: '+data.query));
+  if(!data.results.length){box.appendChild(el('div','empty','Nessun passaggio con termini in comune con la query.'));return}
+  const top=data.results[0].score||1;
+  data.results.forEach((r,i)=>{
+    const d=el('div','result'),m=el('div','meta'),s=el('span','score'),bar=el('i'),fill=el('b');
+    fill.style.width=Math.max(4,r.score/top*100)+'%';bar.appendChild(fill);s.append(el('span',null,'#'+(i+1)),bar,el('span',null,r.score.toFixed(3)));
+    m.append(s,el('code',null,r.chunk_id),el('span',null,r.title),el('span',null,r.citation));
+    d.append(m,highlight(r.text,data.query));box.appendChild(d);
+  });
+}
+async function search(q,label){
+  const r=await fetch('/api/kb/search?k=8&q='+encodeURIComponent(q)),d=await r.json();
+  if(!r.ok){$('#results').textContent=d.error;return}
+  renderResults(d,label);
+}
+function renderSources(){
+  const box=$('#sources');
+  kb.sources.forEach(s=>{
+    const det=el('details','source'),sum=el('summary');
+    sum.append(el('strong',null,s.title),el('em',null,s.chunks.length+' passaggi'),el('span',null,s.citation+' · '+s.id));
+    det.appendChild(sum);
+    det.addEventListener('toggle',()=>{                     // render chunks only when opened
+      if(!det.open||det.querySelector('.body'))return;
+      const body=el('div','body');
+      if(s.url){const a=el('a',null,s.url);a.href=s.url;a.target='_blank';a.rel='noopener';body.appendChild(a)}
+      s.chunks.forEach((c,i)=>{const ch=el('div','chunk');ch.append(el('code',null,s.id+'#'+i+' · '+c.length+' caratteri'),el('p',null,c));body.appendChild(ch)});
+      det.appendChild(body);
+    });
+    box.appendChild(det);
+  });
+}
+async function init(){
+  kb=await fetch('/api/kb').then(r=>r.json());
+  $('#subtitle').textContent='Memoria da retrieval degli agenti · corpus.json'+(kb.created_at?' · creato '+kb.created_at.slice(0,10):'');
+  [[kb.stats.sources,'fonti'],[kb.stats.chunks,'passaggi indicizzati'],[kb.stats.avg_chars,'caratteri medi per passaggio'],[kb.stats.total_chars.toLocaleString('it'),'caratteri totali']].forEach(([b,s])=>{const d=el('div','stat');d.append(el('b',null,b),el('span',null,s));$('#stats').appendChild(d)});
+  $('#method').textContent='Come cercano gli agenti: '+kb.method+' Il Testing agent recupera 2 passaggi per ciascuna delle prime due classi del voto più 1 sulla diagnosi differenziale; il Reviewer ne cerca altri in modo indipendente, usando anche la motivazione del tester come query. Questi passaggi descrivono le condizioni, non l\'immagine.';
+  kb.classes.forEach(c=>{const b=el('button','chip',c.name);b.setAttribute('aria-pressed','false');b.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));search(c.query,'classe '+c.id+' · '+c.name)};$('#classChips').appendChild(b)});
+  renderSources();
+  const q=new URLSearchParams(location.search).get('q');if(q){$('#q').value=q;search(q)}
+}
+$('#searchForm').onsubmit=e=>{e.preventDefault();const q=$('#q').value.trim();if(q){document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed','false'));search(q)}};
+init().catch(e=>{$('#subtitle').textContent='Impossibile caricare la knowledge base: '+e.message});
+</script>
+</body></html>

@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>DermaAgent</title>
+  <style>
+    :root{
+      --ink:#1a1c1f;--ink-soft:#4d5157;--muted:#8a8d93;--line:#e6e4e0;--line-soft:#efeee9;
+      --surface:#ffffff;--canvas:#f6f5f1;--canvas-alt:#efeee7;
+      --accent:#4338ca;--accent-strong:#332c9e;--accent-soft:#edecfb;
+      --good:#0f8a5f;--good-soft:#e5f5ee;--warn:#b5760f;--warn-soft:#fbf1de;--danger:#c23b52;--danger-soft:#fbeaed;
+      --radius-sm:8px;--radius-md:13px;--radius-lg:20px;--radius-pill:999px;
+      --shadow-sm:0 1px 2px rgba(23,24,28,.05),0 1px 1px rgba(23,24,28,.04);
+      --shadow-md:0 10px 30px rgba(23,24,28,.08);
+      --shadow-lg:0 28px 70px rgba(23,24,28,.20);
+      --ease:cubic-bezier(.2,.7,.3,1);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);background:var(--canvas);overflow:hidden;-webkit-font-smoothing:antialiased}
+    button,input,textarea,select{font:inherit;color:inherit}
+    button{cursor:pointer;background:none}
+    button:disabled{cursor:not-allowed}
+    svg{display:block}
+    .icon{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
+    @keyframes blink{50%{opacity:.35}}
+    @keyframes flow{to{stroke-dashoffset:-14}}
+
+    /* ---- shell & topbar ---- */
+    .shell{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr)}
+    .topbar{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface);position:relative;z-index:20}
+    .brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+    .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:.02em}
+    .brand strong{font-size:14px;font-weight:650;letter-spacing:-.01em}
+    .topbar-actions{display:flex;align-items:center;gap:6px}
+    .status-btn{display:flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 10px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:560}
+    .status-btn:hover{border-color:#d5d3cd;background:var(--canvas-alt)}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none;transition:background .2s}
+    .status-dot.good{background:var(--good)}
+    .status-dot.warn{background:var(--warn);animation:blink 1.6s ease-in-out infinite}
+    .status-dot.busy{background:var(--accent);animation:blink 1s ease-in-out infinite}
+    .status-btn .chev{width:12px;height:12px;stroke-width:2;transition:transform .18s var(--ease)}
+    .status-btn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+    .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--surface)}
+    .icon-btn:hover{border-color:#d5d3cd;background:var(--canvas-alt)}
+    .icon-btn.subtle{border-color:transparent;background:transparent}
+    .icon-btn.subtle:hover{background:var(--canvas-alt);border-color:var(--line)}
+    .text-btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:600}
+    .text-btn:hover{border-color:#d5d3cd;background:var(--canvas-alt)}
+    .text-btn.running{position:relative}
+    .text-btn.running:after{content:"";position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+    .text-btn.waiting:after{content:"";position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+    .text-btn.waiting{position:relative}
+
+    .popover{position:absolute;top:52px;right:20px;width:290px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:6px;opacity:0;transform:translateY(-6px) scale(.98);pointer-events:none;transition:opacity .15s var(--ease),transform .15s var(--ease);z-index:60}
+    .popover.open{opacity:1;transform:none;pointer-events:auto}
+    .popover-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm)}
+    .popover-row .label{flex:1;font-size:12.5px;font-weight:550}
+    .popover-row .value{font-size:11.5px;color:var(--muted);text-align:right}
+    .popover-divider{height:1px;background:var(--line-soft);margin:4px 6px}
+
+    /* ---- messages ---- */
+    .stage-area{position:relative;min-height:0;overflow:auto;scroll-behavior:smooth}
+    .messages{max-width:820px;margin:0 auto;padding:22px 20px 8px}
+    .empty-state{max-width:640px;margin:8vh auto 0;padding:0 20px;text-align:center}
+    .empty-state .mark{width:46px;height:46px;border-radius:13px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;margin:0 auto 18px}
+    .empty-state h1{font-size:19px;font-weight:650;letter-spacing:-.01em;margin:0 0 8px}
+    .empty-state p{font-size:13.5px;line-height:1.6;color:var(--ink-soft);margin:0 0 22px}
+    .suggestions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .suggestion{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-md);padding:12px 14px;transition:border-color .15s var(--ease),transform .15s var(--ease),box-shadow .15s var(--ease)}
+    .suggestion:hover{border-color:#d5d3cd;box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+    .suggestion .t{display:block;font-size:12.5px;font-weight:600}
+    .suggestion .d{display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+    .sample-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px}
+    .sample{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:4px;display:flex;flex-direction:column;align-items:center;gap:3px;width:78px}
+    .sample:hover{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+    .sample img{width:56px;height:56px;border-radius:7px;image-rendering:pixelated}
+    .sample span{font-size:9px;color:var(--muted);max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    .message{display:flex;gap:10px;margin-bottom:18px;align-items:flex-start}
+    .message.user{flex-direction:row-reverse}
+    .message .avatar{width:26px;height:26px;border-radius:8px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex:none;margin-top:2px}
+    .message.user .avatar{background:var(--accent-soft);color:var(--accent-strong)}
+    .message-body{min-width:0;max-width:calc(100% - 70px)}
+    .message.user .message-body{display:flex;flex-direction:column;align-items:flex-end}
+    .bubble{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:11px 14px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;text-align:left}
+    .bubble h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+    .bubble .block+.block{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft)}
+    .message.user .bubble{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .thumbs{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:6px}
+    .thumbs img{width:40px;height:40px;border-radius:7px;image-rendering:pixelated;border:1px solid var(--line)}
+    .stamp{font-size:10.5px;color:var(--muted);margin-top:5px;padding:0 2px}
+    .open-process{margin-top:8px;font-size:11px;color:var(--accent-strong);border:1px solid var(--line);border-radius:var(--radius-pill);padding:4px 10px;background:var(--surface)}
+    .open-process:hover{border-color:var(--accent);background:var(--accent-soft)}
+
+    .result-card{margin:6px 0 14px 36px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-sm)}
+    .result-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:13px}
+    .result-head h2{font-size:16px;font-weight:650;margin:0 0 3px;letter-spacing:-.01em}
+    .result-head .stamp{margin:0;padding:0}
+    .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .badge{font-size:11.5px;font-weight:650;white-space:nowrap;padding:5px 10px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent-strong)}
+    .badge.good{background:var(--good-soft);color:var(--good)}
+    .badge.warn{background:var(--warn-soft);color:var(--warn)}
+    .badge.danger{background:var(--danger-soft);color:var(--danger)}
+    .result-grid{display:grid;grid-template-columns:132px 1fr;gap:16px}
+    .lesion{width:132px;aspect-ratio:1;border-radius:var(--radius-md);background:var(--canvas);border:1px solid var(--line);image-rendering:pixelated;object-fit:cover}
+    .prob{display:grid;grid-template-columns:1fr auto;gap:3px 8px;margin-bottom:7px;font-size:11px}
+    .prob span{color:var(--ink-soft)}
+    .prob b{font-weight:650}
+    .track{grid-column:1/-1;height:5px;border-radius:var(--radius-pill);background:var(--line-soft);overflow:hidden}
+    .track i{display:block;height:100%;background:var(--accent);border-radius:var(--radius-pill)}
+    .prob.win .track i{background:var(--ink)}
+    .section{font-size:12.5px;line-height:1.6;color:var(--ink-soft);margin:12px 0 0;padding-top:11px;border-top:1px solid var(--line-soft)}
+    .section strong{color:var(--ink);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:3px}
+    .issue{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5;margin-top:6px}
+    .sev{flex:none;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 6px;border-radius:5px;background:var(--canvas-alt);color:var(--ink-soft);margin-top:1px}
+    .sev.critical{background:var(--danger-soft);color:var(--danger)}
+    .sev.warning{background:var(--warn-soft);color:var(--warn)}
+    .issue small{display:block;color:var(--muted);font-size:10.5px}
+    .source-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .source-list a{font-size:10.5px;color:var(--accent-strong);text-decoration:none;border:1px solid var(--line);border-radius:var(--radius-pill);padding:4px 9px;background:var(--surface)}
+    .source-list a:hover{border-color:var(--accent);background:var(--accent-soft)}
+
+    /* ---- composer ---- */
+    .composer-zone{padding:12px 20px 16px;background:var(--canvas)}
+    .composer-wrap{max-width:820px;margin:0 auto}
+    .file-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+    .file-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:5px 6px 5px 5px;font-size:11.5px}
+    .file-chip img{width:26px;height:26px;border-radius:6px;object-fit:cover;image-rendering:pixelated}
+    .file-chip span{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .composer{border:1px solid var(--line);border-radius:22px;padding:6px;display:flex;align-items:flex-end;gap:6px;background:var(--surface);box-shadow:var(--shadow-sm);transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+    .composer:focus-within{border-color:#c9c6bf;box-shadow:var(--shadow-md)}
+    .composer .attach input{display:none}
+    .composer textarea{flex:1;border:0;resize:none;outline:0;background:transparent;min-height:22px;max-height:130px;padding:8px 4px;font-size:13.5px;line-height:1.5}
+    .composer textarea::placeholder{color:var(--muted)}
+    .send{flex:none;background:var(--ink);color:#fff;border-radius:50%}
+    .send:disabled{background:var(--line);color:var(--muted)}
+    .hint{text-align:center;color:var(--muted);font-size:10.5px;margin-top:9px}
+
+    /* ---- process overlay ---- */
+    .overlay{position:fixed;inset:0;z-index:50;background:rgba(20,20,22,.38);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .22s var(--ease)}
+    .overlay.open{opacity:1;pointer-events:auto}
+    .drawer{position:absolute;right:18px;top:18px;bottom:18px;width:min(980px,calc(100% - 36px));background:var(--canvas);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);transform:translateX(24px) scale(.99);transition:transform .25s var(--ease);display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+    .overlay.open .drawer{transform:none}
+    .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+    .drawer-title h2{margin:0;font-size:15px;font-weight:650}
+    .drawer-title p{margin:2px 0 0;color:var(--muted);font-size:11.5px}
+    .drawer-body{overflow:auto;padding:16px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr);gap:12px;align-items:start}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:15px}
+    .card.full{grid-column:1/-1}
+    .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+    .card-head strong{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+    .card-head span{font-size:10.5px;color:var(--muted);font-weight:560}
+
+    /* graph: nodes laid out by CSS grid, edges drawn in JS between the real boxes */
+    .graph-canvas{position:relative;padding:4px 0 2px}
+    .graph-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+    .graph-edges path{fill:none;stroke:var(--line);stroke-width:1.6;transition:stroke .3s var(--ease)}
+    .graph-edges path.seq{stroke-dasharray:4 3}
+    .graph-edges path.active{stroke:var(--accent);stroke-width:2.2;stroke-dasharray:6 8;animation:flow .7s linear infinite}
+    .graph-edges path.done{stroke:#a9cdb8;stroke-dasharray:none}
+    .graph-edges path.error{stroke:#e6b7c0;stroke-dasharray:none}
+    .hub-row{display:flex;justify-content:center;margin-bottom:46px}
+    .agent-row{display:grid;grid-template-columns:1.15fr 1fr .8fr;gap:34px;align-items:start}
+    .gnode{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow-sm);transition:border-color .25s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease);z-index:1}
+    .gnode .gh{display:flex;align-items:center;gap:8px}
+    .gnode .gi{width:24px;height:24px;border-radius:7px;background:var(--canvas-alt);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:750;flex:none}
+    .gnode strong{display:block;font-size:12px;font-weight:700}
+    .gnode .gd{display:block;font-size:10px;color:var(--muted);margin-top:1px;line-height:1.3}
+    .gnode em{display:inline-flex;align-items:center;gap:4px;font-style:normal;font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-left:auto;white-space:nowrap;align-self:flex-start}
+    .gnode em:before{content:"";width:5px;height:5px;border-radius:50%;background:var(--muted)}
+    .gnode.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+    .gnode.active .gi{background:var(--accent);color:#fff}
+    .gnode.active em{color:var(--accent-strong)}
+    .gnode.active em:before{background:var(--accent);animation:blink 1s ease-in-out infinite}
+    .gnode.waiting{border-color:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+    .gnode.waiting em{color:var(--warn)}
+    .gnode.waiting em:before{background:var(--warn);animation:blink 1.2s ease-in-out infinite}
+    .gnode.done{border-color:#bfe0cd}
+    .gnode.done .gi{background:var(--good-soft);color:var(--good)}
+    .gnode.done em{color:var(--good)}
+    .gnode.done em:before{background:var(--good)}
+    .gnode.error{background:var(--danger-soft);border-color:#e6b7c0}
+    .gnode.error em{color:var(--danger)}
+    .gnode.error em:before{background:var(--danger)}
+    .gnode.skipped{opacity:.55;border-style:dashed}
+    .gnode.hub{width:260px;background:var(--ink);border-color:var(--ink)}
+    .gnode.hub strong{color:#fff}
+    .gnode.hub .gd{color:rgba(255,255,255,.62)}
+    .gnode.hub .gi{background:rgba(255,255,255,.14);color:#fff}
+    .gnode.hub em{color:rgba(255,255,255,.7)}
+    .gnode.hub.active{box-shadow:0 0 0 3px rgba(67,56,202,.35)}
+    .gnode.hub.done{border-color:var(--good)}
+    .gnode.hub.done em{color:#8fe0b8}
+    .gnode.hub.done em:before{background:#8fe0b8}
+    .gnode.hub.error{border-color:var(--danger)}
+    .steps{list-style:none;margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--line-soft);display:grid;gap:2px}
+    .gnode.hub .steps{border-top-color:rgba(255,255,255,.14)}
+    .step{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:3px 4px;border-radius:6px;transition:background .2s,color .2s}
+    .step i{width:7px;height:7px;border-radius:50%;border:1.5px solid #cfcdc7;flex:none}
+    .step.active{color:var(--accent-strong);background:var(--accent-soft);font-weight:600}
+    .step.active i{border-color:var(--accent);background:var(--accent);animation:blink 1s ease-in-out infinite}
+    .step.done{color:var(--ink-soft)}
+    .step.done i{border-color:var(--good);background:var(--good)}
+    .step.error{color:var(--danger)}
+    .step.error i{border-color:var(--danger);background:var(--danger)}
+    .step.skipped{opacity:.6}
+    .step.inspect{cursor:pointer;position:relative}
+    .step.inspect:after{content:"contesto ↗";margin-left:auto;font-size:9px;font-weight:650;color:var(--accent-strong);opacity:.55;letter-spacing:.02em;white-space:nowrap;padding-left:6px}
+    .step.inspect:hover{background:var(--accent-soft);color:var(--accent-strong)}
+    .step.inspect:hover:after{opacity:1}
+    .event .ctx-link{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;color:var(--accent-strong);border:1px solid var(--line);border-radius:var(--radius-pill);padding:2px 8px;background:var(--surface)}
+    .event .ctx-link:hover{border-color:var(--accent);background:var(--accent-soft)}
+    .memory-item.link{cursor:pointer;border:1px solid transparent;transition:border-color .15s var(--ease),background .15s var(--ease)}
+    .memory-item.link:hover{border-color:var(--accent);background:var(--accent-soft)}
+    .memory-item.link strong:after{content:" ↗";color:var(--accent-strong)}
+    .gnode.hub .step{color:rgba(255,255,255,.55)}
+    .gnode.hub .step.done{color:rgba(255,255,255,.85)}
+    .gnode.hub .step.done i{border-color:#8fe0b8;background:#8fe0b8}
+    .gnode.hub .step.active{background:rgba(255,255,255,.1);color:#fff}
+
+    .progress{height:6px;background:var(--line-soft);border-radius:var(--radius-pill);margin:18px 0 8px;overflow:hidden}
+    .progress i{display:block;width:0;height:100%;background:var(--accent);border-radius:var(--radius-pill);transition:width .3s var(--ease)}
+    .stage{font-size:11.5px;line-height:1.5;color:var(--ink-soft);min-height:18px}
+    .trace{display:grid;max-height:520px;overflow:auto}
+    .event{display:grid;grid-template-columns:24px 1fr;gap:9px;position:relative;padding-bottom:14px}
+    .event:not(:last-child):before{content:"";position:absolute;left:11px;top:23px;bottom:0;border-left:1px solid var(--line)}
+    .event-mark{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:var(--accent-strong);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:750;z-index:1}
+    .event-mark.orchestrator{background:var(--ink);color:#fff}
+    .event-mark.reviewer{background:#e8f0fb;color:#2458a6}
+    .event-mark.human{background:var(--warn-soft);color:var(--warn)}
+    .event.warn .event-mark{box-shadow:0 0 0 2px var(--warn-soft);outline:1px solid var(--warn)}
+    .event.error .event-mark{background:var(--danger-soft);color:var(--danger)}
+    .event p{margin:0;font-size:11.5px;line-height:1.5;color:var(--ink-soft)}
+    .event strong{display:block;color:var(--ink);font-size:10.5px;margin-bottom:2px}
+    .event strong span{color:var(--muted);font-weight:500}
+    .event time{font-size:9.5px;color:var(--muted)}
+    .event details{margin-top:4px}
+    .event summary{font-size:10px;color:var(--accent-strong);cursor:pointer;list-style:none}
+    .event summary::-webkit-details-marker{display:none}
+    .event pre{margin:5px 0 0;padding:8px;background:var(--canvas);border-radius:7px;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:var(--ink-soft);max-height:260px;overflow:auto}
+    .memory-grid{display:grid;gap:8px}
+    .memory-item{background:var(--canvas);padding:10px 11px;border-radius:var(--radius-sm)}
+    .memory-item strong{display:block;font-size:10.5px;margin-bottom:2px}
+    .memory-item span{font-size:10px;line-height:1.45;color:var(--muted)}
+    .model-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:10px;margin-top:6px;color:var(--ink-soft)}
+    .model-row .track{height:4px}
+    .empty{font-size:11.5px;color:var(--muted);padding:6px 0}
+
+    /* ---- modals ---- */
+    .modal-layer{position:fixed;inset:0;z-index:70;background:rgba(20,20,22,.42);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:18px;opacity:0;pointer-events:none;transition:opacity .18s var(--ease)}
+    .modal-layer.open{opacity:1;pointer-events:auto}
+    .modal{width:min(520px,100%);max-height:calc(100vh - 36px);overflow:auto;background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);transform:scale(.98);transition:transform .18s var(--ease)}
+    .modal-layer.open .modal{transform:none}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
+    .modal-head h2{margin:0;font-size:15px;font-weight:650}
+    .modal-body{padding:18px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:11px;font-weight:650;margin-bottom:6px;color:var(--ink-soft)}
+    .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 11px;outline:0;background:var(--surface);font-size:13px}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+    .field small{display:block;color:var(--muted);font-size:10.5px;line-height:1.5;margin-top:6px}
+    .check{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;font-size:12.5px}
+    .check input{margin-top:3px}
+    .check small{display:block;color:var(--muted);font-size:10.5px;line-height:1.5}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+    .primary{border:0;background:var(--ink);color:#fff;border-radius:var(--radius-pill);padding:10px 18px;font-weight:600;font-size:13px}
+    .primary:hover{background:var(--accent-strong)}
+    .ghost-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--radius-pill);padding:10px 16px;font-weight:600;font-size:13px}
+    .ghost-btn:hover{border-color:#d5d3cd;background:var(--canvas-alt)}
+    .danger-btn{border:1px solid #e6b7c0;background:var(--danger-soft);color:var(--danger);border-radius:var(--radius-pill);padding:10px 16px;font-weight:600;font-size:13px}
+    .form-status{min-height:16px;font-size:11px;color:var(--muted);margin-top:10px}
+    .form-status.error{color:var(--danger)}
+    .flag-item{border:1px solid var(--line);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px}
+    .flag-item b{font-size:12.5px}
+
+    /* ---- training mode ---- */
+    .graph-canvas.mode-train [data-agent="tester"],.graph-canvas.mode-train [data-agent="reviewer"]{display:none}
+    .graph-canvas.mode-predict [data-agent="trainer"],.graph-canvas.mode-idle [data-agent="trainer"]{display:none}
+    .graph-canvas.mode-train .agent-row{grid-template-columns:1.6fr .8fr}
+    .steps.two-col{grid-template-columns:1fr 1fr;column-gap:10px}
+    .runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+    .run-card{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--canvas)}
+    .run-card.current{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface)}
+    .run-card b{font-size:11.5px}
+    .run-card small{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+    .run-card svg{width:100%;height:58px;margin-top:6px;overflow:visible}
+    .chart-line{fill:none;stroke:var(--accent);stroke-width:1.8}
+    .chart-dot{fill:var(--accent)}
+    .chart-loss{fill:none;stroke:#bdbab2;stroke-width:1.2;stroke-dasharray:3 2}
+    .trial-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+    .trial-table th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+    .trial-table td{padding:6px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+    .trial-table td small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted);font-size:10px;line-height:1.45;margin-top:2px}
+    .trial-table td small:hover{-webkit-line-clamp:unset}
+    .card.full{min-width:0}
+    .tag{display:inline-block;font-size:9.5px;font-weight:650;padding:2px 6px;border-radius:5px;background:var(--canvas-alt);color:var(--ink-soft);margin:1px 2px 1px 0}
+    .tag.warn{background:var(--warn-soft);color:var(--warn)}
+    .kvt{display:grid;grid-template-columns:minmax(80px,max-content) minmax(70px,1fr);gap:4px 14px;font-size:12px;margin:4px 0}
+    .kvt dt{color:var(--muted);overflow-wrap:anywhere}
+    .kvt dd{margin:0;word-break:break-word}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+    .hm-section{margin-top:14px}
+    .hm-section h4{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+    .hm-text{font-size:12.5px;line-height:1.6;color:var(--ink-soft);white-space:pre-wrap}
+    .modal.wide{width:min(700px,100%)}
+    .delta{font-size:22px;font-weight:700;letter-spacing:-.01em}
+    .delta.up{color:var(--good)}
+    .delta.down{color:var(--danger)}
+    @media(max-width:900px){
+      .drawer-body{grid-template-columns:minmax(0,1fr)}
+      .card.full{grid-column:auto}
+      .drawer{right:10px;top:10px;bottom:10px;width:calc(100% - 20px)}
+    }
+    @media(max-width:680px){
+      .shell{height:var(--app-height,100dvh)}
+      .topbar{padding:10px 12px}
+      .brand strong{display:none}
+      .topbar-actions{gap:5px}
+      .text-btn span{display:none}
+      .text-btn{width:34px;padding:0;justify-content:center}
+      .popover{right:12px;left:12px;width:auto}
+      .messages{padding:16px 14px 4px}
+      .suggestions{grid-template-columns:1fr}
+      .message-body{max-width:calc(100% - 56px)}
+      .composer-zone{padding:10px 12px 14px}
+      .result-card{margin-left:0;padding:13px}
+      .result-grid{grid-template-columns:1fr}
+      .lesion{width:100%;max-width:200px;margin:0 auto}
+      .drawer{inset:auto 0 0;width:100%;height:92dvh;border-radius:20px 20px 0 0}
+      .drawer-body{padding:12px}
+      .hub-row{margin-bottom:14px}
+      .gnode.hub{width:100%}
+      .agent-row{grid-template-columns:1fr;gap:14px}
+      .graph-edges{display:none}
+      .graph-canvas.mode-train .agent-row{grid-template-columns:1fr}
+      .steps.two-col,.grid2{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="mark">DA</div><strong>DermaAgent</strong></div>
+    <div class="topbar-actions">
+      <button class="status-btn" id="statusButton" aria-haspopup="true" aria-expanded="false">
+        <span class="status-dot" id="statusDot"></span><span id="statusLabel">Sistema</span>
+        <svg class="icon chev" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5"/></svg>
+      </button>
+      <button class="text-btn" id="settingsButton" title="Agenti e modelli">
+        <svg class="icon" viewBox="0 0 20 20" style="width:15px;height:15px"><path d="M10 2v4M10 14v4M4.9 4.9l2.8 2.8M12.3 12.3l2.8 2.8M2 10h4M14 10h4M4.9 15.1l2.8-2.8M12.3 7.7l2.8-2.8"/></svg>
+        <span id="settingsLabel">Agenti</span>
+      </button>
+      <button class="text-btn" id="trainButton" title="Nuova campagna di training">
+        <svg class="icon" viewBox="0 0 20 20" style="width:15px;height:15px"><path d="M3 15l4-5 3 3 4-6 3 4"/><path d="M3 18h14"/></svg>
+        <span>Training</span>
+      </button>
+      <button class="text-btn" id="processButton" title="Processo">
+        <svg class="icon" viewBox="0 0 20 20" style="width:15px;height:15px"><circle cx="5" cy="10" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><path d="M6.7 9.2l6.6-3.4M6.7 10.8l6.6 3.4"/></svg>
+        <span>Processo</span>
+      </button>
+      <button class="icon-btn subtle" id="newChat" title="Nuova sessione" aria-label="Nuova sessione">
+        <svg class="icon" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg>
+      </button>
+    </div>
+    <div class="popover" id="statusPopover" role="menu">
+      <div class="popover-row"><span class="status-dot" id="dotModels"></span><span class="label">Ensemble locale</span><span class="value" id="valModels">…</span></div>
+      <div class="popover-row"><span class="status-dot" id="dotKnowledge"></span><span class="label">Knowledge base</span><span class="value" id="valKnowledge">…</span></div>
+      <div class="popover-row"><span class="status-dot" id="dotLogs"></span><span class="label">Memoria (log)</span><span class="value" id="valLogs">…</span></div>
+      <div class="popover-divider"></div>
+      <div class="popover-row"><span class="status-dot" id="dotLLM"></span><span class="label">LLM disponibili</span><span class="value" id="valLLM">…</span></div>
+    </div>
+  </header>
+
+  <div class="stage-area" id="stageArea">
+    <div class="empty-state" id="emptyState">
+      <div class="mark">DA</div>
+      <h1>DermaAgent: Agentic System per classificazione di immagini dermatologiche</h1>
+      <p>Allega una o più immagini. Il <b>Testing agent</b> le fa classificare a tutti i modelli locali, li fa votare, consulta la memoria e la letteratura; il <b>Reviewer agent</b> controlla che il ragionamento sia coerente e ti segnala le criticità. Apri <b>Processo</b> per vedere gli agenti al lavoro.</p>
+      <div class="suggestions">
+        <button class="suggestion" data-samples="*"><span class="t">Tutte le immagini di esempio</span><span class="d">7 lesioni, una per classe</span></button>
+        <button class="suggestion" data-samples="05_melanoma.png"><span class="t">Un melanoma di esempio</span><span class="d">La classe con le implicazioni più serie</span></button>
+        <button class="suggestion" id="suggestSettings"><span class="t">Scegli gli LLM degli agenti</span><span class="d">Locale (Ollama), Claude, o nessuno</span></button>
+        <button class="suggestion" id="suggestProcess"><span class="t">Come funziona</span><span class="d">Il grafo degli agenti</span></button>
+      </div>
+      <div class="sample-strip" id="sampleStrip"></div>
+    </div>
+    <section class="messages" id="messages"></section>
+  </div>
+
+  <footer class="composer-zone">
+    <div class="composer-wrap">
+      <div class="file-chips" id="fileChips"></div>
+      <div class="composer">
+        <label class="icon-btn attach" title="Allega immagini" aria-label="Allega immagini">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>
+          <input id="file" type="file" multiple accept="image/png,image/jpeg,image/bmp,image/tiff">
+        </label>
+        <textarea id="prompt" rows="1" placeholder="Allega immagini e, se vuoi, aggiungi un contesto per gli agenti…"></textarea>
+        <button class="icon-btn send" id="send" aria-label="Invia">
+          <svg class="icon" viewBox="0 0 20 20" style="stroke:#fff"><path d="M10 15V5M5 9l5-5 5 5"/></svg>
+        </button>
+      </div>
+      <div class="hint">Invio per mandare · Shift + Invio per andare a capo · prototipo di ricerca, non una diagnosi</div>
+    </div>
+  </footer>
+</div>
+
+<div class="overlay" id="processOverlay" aria-hidden="true">
+  <section class="drawer" role="dialog" aria-modal="true" aria-labelledby="processTitle">
+    <header class="drawer-head">
+      <div class="drawer-title"><h2 id="processTitle">Attività degli agenti</h2><p>Chi sta lavorando, su cosa, e cosa si passano</p></div>
+      <button class="icon-btn" id="closeProcess" aria-label="Chiudi"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    </header>
+    <div class="drawer-body">
+      <section class="card full">
+        <div class="card-head"><strong>Grafo del processo</strong><span id="graphState">In attesa</span></div>
+        <div class="graph-canvas" id="graphCanvas">
+          <svg class="graph-edges" id="graphEdges">
+            <path data-edge="tester"/><path data-edge="reviewer"/><path data-edge="trainer"/><path data-edge="human"/>
+            <path class="seq" data-seq="tester-reviewer"/><path class="seq" data-seq="reviewer-human"/><path class="seq" data-seq="trainer-human"/>
+          </svg>
+          <div class="hub-row">
+            <div class="gnode hub" data-agent="orchestrator">
+              <div class="gh"><div class="gi">OR</div><div><strong>Orchestrator</strong><span class="gd">Instrada, passa il lavoro, salva la revisione</span></div><em>in attesa</em></div>
+              <ul class="steps"><li class="step" data-step="orchestrator.route"><i></i>Instrada la richiesta</li><li class="step" data-step="orchestrator.finalize"><i></i>Salva la revisione</li></ul>
+            </div>
+          </div>
+          <div class="agent-row">
+            <div class="gnode" data-agent="tester">
+              <div class="gh"><div class="gi">TA</div><div><strong>Testing agent</strong><span class="gd">Ensemble locale, voto, memoria, KB</span></div><em>in attesa</em></div>
+              <ul class="steps" id="testerSteps"></ul>
+            </div>
+            <div class="gnode" data-agent="reviewer">
+              <div class="gh"><div class="gi">RA</div><div><strong>Reviewer agent</strong><span class="gd">Coerenza con traccia, memoria, KB</span></div><em>in attesa</em></div>
+              <ul class="steps" id="reviewerSteps"></ul>
+            </div>
+            <div class="gnode" data-agent="trainer">
+              <div class="gh"><div class="gi">TR</div><div><strong>Training agent</strong><span class="gd">Propone, addestra, analizza · KB di training</span></div><em>in attesa</em></div>
+              <ul class="steps two-col" id="trainerSteps"></ul>
+            </div>
+            <div class="gnode" data-agent="human">
+              <div class="gh"><div class="gi">HU</div><div><strong>Human</strong><span class="gd">Approva, rifiuta, chiarisce</span></div><em>in attesa</em></div>
+              <ul class="steps"><li class="step" data-step="human.decision"><i></i>Accetta / rifiuta</li></ul>
+            </div>
+          </div>
+        </div>
+        <div class="progress"><i id="progress"></i></div><div class="stage" id="stage">Nessun processo in corso.</div>
+      </section>
+      <section class="card full" id="trainLive" hidden>
+        <div class="card-head"><strong>Training live</strong><span id="trainLiveInfo"></span></div>
+        <div class="runs" id="trainRuns"></div>
+        <div class="scroll"><table class="trial-table" id="trialTable"></table></div>
+      </section>
+      <section class="card"><div class="card-head"><strong>Comunicazione</strong><span>Traccia live</span></div><div class="trace" id="activity"><div class="empty">Le azioni degli agenti compaiono qui quando parte un processo.</div></div></section>
+      <section class="card"><div class="card-head"><strong>Memoria e modelli</strong><span>Stato attuale</span></div>
+        <div class="memory-grid">
+          <div class="memory-item"><strong>Memoria deterministica</strong><span id="memLogs">…</span></div>
+          <div class="memory-item link" id="openKB" role="button" tabindex="0" title="Apri un'anteprima della knowledge base"><strong>Memoria da retrieval</strong><span id="memKB">…</span></div>
+          <div class="memory-item"><strong>Ensemble locale</strong><span>Peso nel voto = balanced accuracy di validazione sopra il caso.</span><div id="memModels"></div></div>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<div class="modal-layer" id="settingsModal" aria-hidden="true">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header class="modal-head"><h2 id="settingsTitle">Agenti e modelli</h2>
+      <button class="icon-btn" id="closeSettings" aria-label="Chiudi"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    </header>
+    <div class="modal-body">
+      <div class="field"><label for="testerModel">LLM del Testing agent</label>
+        <select id="testerModel"></select>
+        <input id="testerCustom" placeholder="provider:modello, es. ollama:qwen3.5:4b" style="display:none;margin-top:6px">
+        <small>Senza LLM la risposta è il voto pesato dei modelli. Un LLM locale piccolo può impiegare alcuni minuti.</small></div>
+      <div class="field"><label for="reviewerModel">LLM del Reviewer agent</label>
+        <select id="reviewerModel"></select>
+        <input id="reviewerCustom" placeholder="provider:modello" style="display:none;margin-top:6px">
+        <small>Un modello diverso dal tester rende la revisione più indipendente. Senza LLM restano i controlli automatici.</small></div>
+      <div class="field"><label for="trainerModel">LLM del Training agent</label>
+        <select id="trainerModel"></select>
+        <input id="trainerCustom" placeholder="provider:modello" style="display:none;margin-top:6px">
+        <small>Propone i run e analizza le curve. Senza LLM decide una politica deterministica (plateau → lr ×0.3, overfitting → più weight decay).</small></div>
+      <label class="check"><input type="checkbox" id="explain" checked><span>Racconta il processo<small>Il reviewer apre la risposta con un riassunto passo per passo di cosa hanno fatto gli agenti (verbose).</small></span></label>
+      <label class="check"><input type="checkbox" id="askHuman"><span></b><b><i>HUMAN IN THE LOOP</i></b>Chiedimi conferma sulle criticità<small>Se il reviewer segnala problemi, il grafo si ferma finché non accetti o rifiuti.</small></span></label>
+      <div class="field"><label for="minAcc">Escludi i modelli sotto questa balanced accuracy di validazione</label><input id="minAcc" type="number" min="0" max="0.99" step="0.05" value="0"></div>
+      <div class="form-status" id="settingsStatus"></div>
+      <div class="modal-actions"><button class="ghost-btn" id="cancelSettings">Annulla</button><button class="primary" id="saveSettings">Usa queste impostazioni</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="modal-layer" id="trainModal" aria-hidden="true">
+  <section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="trainTitle">
+    <header class="modal-head"><h2 id="trainTitle">Nuova campagna di training</h2>
+      <button class="icon-btn" id="closeTrain" aria-label="Chiudi"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    </header>
+    <div class="modal-body">
+      <div class="field"><label for="trainRequest">Cosa vuoi ottenere</label><textarea id="trainRequest" rows="2" placeholder="es. migliorare il riconoscimento del dermatofibroma"></textarea>
+        <small>È l'obiettivo del training agent. Prima di addestrare qualcosa ti mostra il piano, che puoi modificare.</small></div>
+      <div class="grid2">
+        <div class="field"><label for="trainArch">Architettura</label><select id="trainArch"></select><small>"Decide l'agente": parte da FPViT e può proporne un'altra, motivandola.</small></div>
+        <div class="field"><label for="trainAutonomy">Autonomia</label><select id="trainAutonomy">
+          <option value="guarded">Guarded — piccoli ritocchi di lr / weight decay da soli, il resto lo approvi tu</option>
+          <option value="supervised">Supervised — approvi ogni run</option>
+          <option value="autonomous">Autonomous — decide da solo dentro il budget</option></select>
+          <small>Il piano e la promozione nell'ensemble li approvi sempre tu.</small></div>
+        <div class="field"><label for="trainTrials">Numero massimo di run</label><input id="trainTrials" type="number" min="1" max="20" value="4"></div>
+        <div class="field"><label for="trainMinutes">Budget (minuti)</label><input id="trainMinutes" type="number" min="1" max="1440" value="60"></div>
+        <div class="field"><label for="trainEpochs">Epoche massime per run</label><input id="trainEpochs" type="number" min="1" max="200" value="30"></div>
+        <div class="field"><label for="trainPatience">Trigger: epoche senza miglioramento</label><input id="trainPatience" type="number" min="1" max="50" value="3"><small>Poi l'agente si ferma e propone cosa cambiare.</small></div>
+        <div class="field"><label for="trainSelect">Metrica di selezione</label><select id="trainSelect"><option value="balanced_acc">balanced accuracy</option><option value="macro_f1">macro-F1</option><option value="macro_auc">macro-AUC</option></select></div>
+        <div class="field"><label for="trainTarget">Obiettivo (facoltativo)</label><input id="trainTarget" type="number" min="0.01" max="0.99" step="0.01" placeholder="es. 0.60"></div>
+      </div>
+      <div class="field"><label for="trainModel">LLM del Training agent</label><select id="trainModel"></select></div>
+      <div class="form-status" id="trainStatus"></div>
+      <div class="modal-actions"><button class="ghost-btn" id="cancelTrain">Annulla</button><button class="primary" id="startTrain">Prepara il piano</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="modal-layer" id="humanModal" aria-hidden="true">
+  <section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="humanTitle">
+    <header class="modal-head"><h2 id="humanTitle">Serve una tua decisione</h2></header>
+    <div class="modal-body">
+      <p class="hm-text" id="humanIntro" style="margin:0 0 4px"></p>
+      <div id="humanBody"></div>
+      <div class="field" style="margin-top:14px"><label for="humanNote" id="humanNoteLabel">Nota (facoltativa)</label><textarea id="humanNote" rows="2"></textarea></div>
+      <div class="form-status" id="humanStatus"></div>
+      <div class="modal-actions" id="humanActions"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),messages=$('#messages'),promptBox=$('#prompt'),sendButton=$('#send'),emptyState=$('#emptyState');
+const TESTER_STEPS=[['load_inputs','Legge le immagini'],['recall_memory','Memoria deterministica'],['run_models','Modelli locali'],['vote','Voto pesato'],['retrieve_knowledge','Knowledge base'],['reason','Ragionamento'],['write_log','Salva nel log']];
+const REVIEWER_STEPS=[['gather','Controlli + KB indipendente'],['review','Verifica di coerenza'],['render','Report per l\'utente']];
+const STATE_LABEL={idle:'in attesa',active:'al lavoro',done:'fatto',error:'errore',waiting:'attende te',skipped:'non richiesto'};
+const ACTOR_MARK={'Orchestrator':['OR','orchestrator'],'Testing agent':['TA','tester'],'Reviewer agent':['RA','reviewer'],'Training agent':['TR','tester'],'Human':['HU','human']};
+const TRAINER_STEPS=[['plan','Piano + memoria'],['approve_plan','Approvazione piano 👤'],['propose','Proposta (LLM + KB)'],['validate','Validazione'],['review_proposal','Reviewer + autonomia'],['approve_proposal','Approvazione run 👤'],['train','Training (trigger plateau)'],['analyse','Analisi (LLM + KB)'],['decide','Continuo o mi fermo?'],['evaluate','Ensemble ± candidato'],['approve_promotion','Promozione 👤'],['promote','Copia in models_promoted'],['finish','Report']];
+const AUTONOMY_LABEL={supervised:'supervised',guarded:'guarded',autonomous:'autonomous'};
+let lastJob=(()=>{try{return localStorage.getItem('dermaLastJob')}catch(e){return null}})(),selected=[],busy=false,currentJob=null,lastHealth=null,settings=loadSettings(),humanShownFor=null,lastJobState=null;
+
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined&&text!==null)e.textContent=text;return e}
+function clock(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+function sizeApp(){document.documentElement.style.setProperty('--app-height',Math.round(window.visualViewport?.height||window.innerHeight)+'px')}
+function toggleEmpty(){emptyState.style.display=messages.children.length?'none':'block'}
+function scrollDown(){const a=$('#stageArea');a.scrollTop=a.scrollHeight}
+function loadSettings(){try{return JSON.parse(localStorage.getItem('dermaSettings'))||null}catch(e){return null}}
+function storeSettings(){try{localStorage.setItem('dermaSettings',JSON.stringify(settings))}catch(e){}}
+
+/* ---------- explainability windows ---------- */
+const INSPECTABLE={'tester.reason':'Ragionamento del Testing agent','reviewer.review':'Verifica del Reviewer agent'};
+function openContext(step){
+  if(!lastJob){$('#stage').textContent='Avvia un processo: il contesto di "'+INSPECTABLE[step]+'" sarà visibile appena il passo parte.';return}
+  window.open('/context?job='+encodeURIComponent(lastJob)+'&step='+step,'dermaContext');
+}
+function openKB(){window.open('/kb','dermaKB')}
+
+/* ---------- graph ---------- */
+function buildSteps(){
+  const fill=(box,agent,list)=>list.forEach(([id,label])=>{const li=el('li','step');li.dataset.step=agent+'.'+id;li.append(el('i'),document.createTextNode(label));box.appendChild(li)});
+  fill($('#testerSteps'),'tester',TESTER_STEPS);fill($('#reviewerSteps'),'reviewer',REVIEWER_STEPS);fill($('#trainerSteps'),'trainer',TRAINER_STEPS);
+  Object.keys(INSPECTABLE).forEach(key=>{const li=document.querySelector('.step[data-step="'+key+'"]');li.classList.add('inspect');li.title='Apri tutto il contesto che l\'agente sta considerando';li.onclick=()=>openContext(key)});
+}
+function drawEdges(){
+  const canvas=$('#graphCanvas'),svg=$('#graphEdges');if(!canvas.offsetWidth)return;
+  const c=canvas.getBoundingClientRect();
+  const box=a=>{const n=document.querySelector('.gnode[data-agent="'+a+'"]');return n&&n.offsetParent!==null?n.getBoundingClientRect():null};
+  svg.setAttribute('viewBox','0 0 '+c.width+' '+c.height);
+  const hub=box('orchestrator'),hx=hub.left+hub.width/2-c.left,hy=hub.bottom-c.top;
+  document.querySelectorAll('[data-edge]').forEach(p=>{
+    const b=box(p.dataset.edge);if(!b){p.setAttribute('d','');return}
+    const x=b.left+b.width/2-c.left,y=b.top-c.top,m=(hy+y)/2;
+    p.setAttribute('d','M'+hx+','+hy+' C'+hx+','+m+' '+x+','+m+' '+x+','+y);
+  });
+  document.querySelectorAll('[data-seq]').forEach(p=>{
+    const [a,b]=p.dataset.seq.split('-'),A=box(a),B=box(b);if(!A||!B){p.setAttribute('d','');return}
+    const y=Math.min(A.top+28,B.top+28)-c.top;
+    p.setAttribute('d','M'+(A.right-c.left)+','+y+' L'+(B.left-c.left)+','+y);
+  });
+}
+function renderGraph(graph={},steps={},kind){
+  const canvas=$('#graphCanvas');['mode-idle','mode-predict','mode-train'].forEach(k=>canvas.classList.remove(k));canvas.classList.add('mode-'+(kind||'idle'));
+  document.querySelectorAll('.gnode[data-agent]').forEach(node=>{
+    const st=graph[node.dataset.agent]||'idle';
+    ['active','done','error','waiting','skipped'].forEach(k=>node.classList.toggle(k,st===k));
+    node.querySelector('em').textContent=STATE_LABEL[st]||st;
+  });
+  document.querySelectorAll('.step[data-step]').forEach(li=>{
+    const [agent,id]=li.dataset.step.split('.'),st=(steps[agent]||{})[id]||'idle';
+    ['active','done','error','skipped'].forEach(k=>li.classList.toggle(k,st===k||(k==='active'&&st==='waiting')));
+  });
+  const setEdge=(p,st)=>{['active','done','error'].forEach(k=>p.classList.toggle(k,st===k||(k==='active'&&st==='waiting')))};
+  document.querySelectorAll('[data-edge]').forEach(p=>setEdge(p,graph[p.dataset.edge]||'idle'));
+  document.querySelectorAll('[data-seq]').forEach(p=>{const to=p.dataset.seq.split('-')[1];setEdge(p,graph[to]==='skipped'?'idle':graph[to]||'idle')});
+  drawEdges();
+}
+function renderActivity(items=[]){
+  const box=$('#activity');box.innerHTML='';
+  if(!items.length){box.appendChild(el('div','empty','Le azioni degli agenti compaiono qui quando parte un processo.'));return}
+  const open=new Set([...document.querySelectorAll('.event details[open]')].map(d=>d.dataset.key));
+  items.slice().reverse().forEach((item,i)=>{
+    const ev=el('div','event '+(item.level||'')),[mark,kind]=ACTOR_MARK[item.actor]||['··',''];
+    ev.appendChild(el('div','event-mark '+kind,mark));
+    const body=el('div'),title=el('strong',null,item.actor+' ');title.appendChild(el('span',null,item.node||''));
+    body.append(title,el('p',null,item.message));
+    if(item.details&&item.details.length){
+      const d=el('details');d.dataset.key=item.time+item.actor+item.node;if(open.has(d.dataset.key))d.open=true;
+      d.append(el('summary',null,'dettagli ('+item.details.length+' righe)'),el('pre',null,item.details.join('\n')));body.appendChild(d);
+    }
+    const key={Testing:'tester',Reviewer:'reviewer'}[(item.actor||'').split(' ')[0]]+'.'+item.node;
+    if(INSPECTABLE[key]){const a=el('button','ctx-link','Apri il contesto completo ↗');a.onclick=()=>openContext(key);body.appendChild(a)}
+    body.appendChild(el('time',null,item.time||''));ev.appendChild(body);box.appendChild(ev);
+  });
+}
+
+/* ---------- chat ---------- */
+function addUser(text,thumbs){
+  const row=el('div','message user'),body=el('div','message-body');
+  row.append(el('div','avatar','Tu'),body);
+  if(thumbs.length){const t=el('div','thumbs');thumbs.forEach(src=>{const im=el('img');im.src=src;im.alt='';t.appendChild(im)});body.appendChild(t)}
+  body.append(el('div','bubble',text),el('div','stamp','Tu · '+clock()));
+  messages.appendChild(row);toggleEmpty();scrollDown();
+}
+function addAssistant(blocks,withProcess,withContext=true){
+  const row=el('div','message'),body=el('div','message-body'),bubble=el('div','bubble');
+  blocks.filter(b=>b&&b.text).forEach(b=>{const blk=el('div','block');if(b.title)blk.appendChild(el('h4',null,b.title));blk.appendChild(document.createTextNode(b.text));bubble.appendChild(blk)});
+  row.append(el('div','avatar','DA'),body);body.append(bubble,el('div','stamp','DermaAgent · '+clock()));
+  if(withProcess){const b=el('button','open-process','Vedi il processo degli agenti');b.onclick=openProcess;body.appendChild(b);
+    if(withContext){const c=el('button','open-process','Contesto del ragionamento ↗');c.style.marginLeft='6px';c.onclick=()=>openContext('tester.reason');body.appendChild(c)}}
+  messages.appendChild(row);toggleEmpty();scrollDown();
+}
+function renderResult(job,img){
+  const card=el('section','result-card'),head=el('div','result-head'),left=el('div');
+  left.append(el('h2',null,img.final_class),el('span','stamp',img.file+(img.overridden?' · il ragionamento ha scavalcato il voto ('+img.vote_class+')':'')));
+  const badges=el('div','badges');
+  badges.appendChild(el('span','badge '+({high:'good',medium:'',low:'warn'}[img.confidence_level]||''),'confidenza '+img.confidence_level));
+  badges.appendChild(el('span','badge '+(img.flagged?'danger':'good'),img.flagged?'⚠ criticità':'✓ coerente'));
+  head.append(left,badges);card.appendChild(head);
+  const grid=el('div','result-grid'),pic=el('img','lesion');pic.alt=img.file;pic.src='/api/image?job='+encodeURIComponent(job)+'&i='+img.index;
+  const bars=el('div');bars.appendChild(el('div','stamp','Voto pesato dell\'ensemble'));
+  Object.entries(img.soft_vote).forEach(([name,p],i)=>{const r=el('div','prob'+(name===img.final_class?' win':''));r.append(el('span',null,name),el('b',null,(p*100).toFixed(1)+'%'));const t=el('div','track'),bar=el('i');bar.style.width=(p*100)+'%';t.appendChild(bar);r.appendChild(t);bars.appendChild(r)});
+  grid.append(pic,bars);card.appendChild(grid);
+  const sec=(title,text)=>{if(!text)return;const s=el('div','section');s.append(el('strong',null,title),document.createTextNode(text));card.appendChild(s)};
+  sec('Sintesi del reviewer',img.user_summary||img.rationale);
+  sec('Modello decisivo',img.decisive_model_explanation);
+  if(img.past&&img.past.length)sec('Memoria','Già vista il '+img.past[0].timestamp+': allora classificata '+img.past[0].final_class+'.');
+  if(img.issues.length){
+    const s=el('div','section');s.appendChild(el('strong',null,'Criticità e note'));
+    img.issues.forEach(i=>{const r=el('div','issue'),t=el('div',null,i.description);r.appendChild(el('span','sev '+i.severity,i.severity));if(i.evidence)t.appendChild(el('small',null,i.evidence));r.appendChild(t);s.appendChild(r)});
+    card.appendChild(s);
+  }
+  if(img.sources&&img.sources.length){const l=el('div','source-list');img.sources.forEach(src=>{const a=el('a',null,src.citation);a.href=src.url;a.target='_blank';a.rel='noopener';l.appendChild(a)});card.appendChild(l)}
+  messages.appendChild(card);toggleEmpty();scrollDown();
+}
+function sparkline(rows){
+  const W=200,H=52,vals=rows.map(r=>+r.val_balanced_acc||0),loss=rows.map(r=>+r.train_loss||0);
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.setAttribute('preserveAspectRatio','none');
+  if(!rows.length)return svg;
+  const lo=Math.min(...vals)-0.02,hi=Math.max(...vals)+0.02,lmin=Math.min(...loss),lmax=Math.max(...loss)||1;
+  const x=i=>rows.length<2?W/2:i*(W-4)/(rows.length-1)+2,y=v=>H-4-(v-lo)/((hi-lo)||1)*(H-8),yl=v=>H-4-(v-lmin)/((lmax-lmin)||1)*(H-8);
+  const path=(arr,f)=>arr.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+','+f(v).toFixed(1)).join(' ');
+  const mk=(cls,d)=>{const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('class',cls);p.setAttribute('d',d);svg.appendChild(p)};
+  if(rows.length>1)mk('chart-loss',path(loss,yl));
+  mk('chart-line',rows.length>1?path(vals,y):'M'+(x(0)-1)+','+y(vals[0])+' L'+(x(0)+1)+','+y(vals[0]));
+  const d=document.createElementNS('http://www.w3.org/2000/svg','circle');d.setAttribute('class','chart-dot');d.setAttribute('r','2.6');d.setAttribute('cx',x(vals.length-1));d.setAttribute('cy',y(vals[vals.length-1]));svg.appendChild(d);
+  return svg;
+}
+function renderTraining(t,kind){
+  $('#trainLive').hidden=kind!=='train';if(kind!=='train'||!t)return;
+  const plan=t.plan||{};
+  $('#trainLiveInfo').textContent=(t.campaign_id?'campagna '+t.campaign_id+' · ':'')+'run '+t.trials_done+'/'+(t.max_trials||'?')+(plan.autonomy?' · autonomia '+plan.autonomy:'');
+  const box=$('#trainRuns');box.innerHTML='';
+  const done=Object.fromEntries((t.trials||[]).map(x=>[x.run,x]));
+  Object.entries(t.runs||{}).forEach(([run,rows])=>{
+    const last=rows[rows.length-1]||{},best=Math.max(...rows.map(r=>+r.val_balanced_acc||0));
+    const c=el('div','run-card'+(run===t.current&&!done[run]?' current':''));
+    c.append(el('b',null,run),el('small',null,'epoca '+(last.epoch||0)+' · bal.acc val '+(+last.val_balanced_acc||0).toFixed(3)+' (max '+best.toFixed(3)+')'+(last.epoch_seconds?' · '+Math.round(last.epoch_seconds)+' s/ep':'')),sparkline(rows));
+    if(done[run])c.appendChild(el('small',null,'fine: '+(done[run].stop_reason||'')));
+    box.appendChild(c);
+  });
+  if(!box.children.length)box.appendChild(el('div','empty','Le curve compaiono qui dalla prima epoca. Linea piena: balanced accuracy di validazione; tratteggiata: loss di training.'));
+  const tb=$('#trialTable');tb.innerHTML='';
+  if(!(t.trials||[]).length)return;
+  const h=el('tr');['Run','Cosa','Config','Risultato','Diagnosi'].forEach(x=>h.appendChild(el('th',null,x)));tb.appendChild(h);
+  t.trials.forEach(x=>{
+    const tr=el('tr'),c1=el('td'),c2=el('td'),c3=el('td'),c4=el('td'),c5=el('td');
+    c1.append(el('b',null,x.run));
+    c2.append(document.createTextNode(x.action==='warm_restart'?'warm restart da '+x.parent_run:'nuovo run '+x.arch));c2.appendChild(el('small',null,x.rationale));
+    c3.append(document.createTextNode('lr '+(+x.lr).toPrecision(2)+' · wd '+x.weight_decay+' · '+x.class_weight));c3.appendChild(el('small',null,'augmentation "'+x.augmentation+'": '+(x.augmentation_rationale||'')));
+    c4.append(document.createTextNode(x.best_score!=null?(+x.best_score).toFixed(4):'—'));c4.appendChild(el('small',null,(x.stop_reason||'')+(x.best_epoch?' · migliore all\'epoca '+x.best_epoch:'')));
+    (x.flags||[]).forEach(f=>c5.appendChild(el('span','tag'+(f==='overfitting'||f==='collapsed_classes'?' warn':''),f)));c5.appendChild(el('small',null,x.verdict||''));
+    tr.append(c1,c2,c3,c4,c5);tb.appendChild(tr);
+  });
+}
+function finishTrain(state){
+  const r=state.result||{},ev=r.evaluation||{},pr=r.promotion||{};
+  addAssistant([{title:'Training',text:r.report||state.error||'Campagna terminata.'}],true,false);
+  if(ev.ensemble_now){
+    const card=el('section','result-card'),head=el('div','result-head'),left=el('div');
+    left.append(el('h2',null,'Candidato '+(r.candidate?.run||'')),el('span','stamp','ensemble di validazione con e senza il candidato'));
+    const badges=el('div','badges');badges.appendChild(el('span','badge '+(pr.name?'good':'warn'),pr.name?'promosso':'non promosso'));head.append(left,badges);card.appendChild(head);
+    const d=ev.delta_balanced_acc||0,big=el('div','delta '+(d>0?'up':d<0?'down':''),(d>=0?'+':'')+d.toFixed(4));
+    card.appendChild(big);
+    card.appendChild(el('div','stamp','balanced accuracy '+ev.ensemble_now.balanced_acc.toFixed(4)+' → '+ev.ensemble_with_candidate.balanced_acc.toFixed(4)+' · da solo '+ev.candidate_alone.balanced_acc.toFixed(4)));
+    const s=el('div','section');s.appendChild(el('strong',null,'Recall per classe'));
+    Object.entries(ev.recall_changes||{}).forEach(([c,v])=>{if(!v)return;const row=el('div','issue');row.append(el('span','sev '+(v>0?'':'warning'),(v>0?'+':'')+v.toFixed(3)),el('div',null,c));s.appendChild(row)});
+    card.appendChild(s);
+    if(pr.name)card.appendChild(el('div','section','Copiato in models_promoted/'+pr.name+': il Testing agent lo usa dalla prossima previsione. Il run originale non è stato toccato.'));
+    card.appendChild(el('div','stamp',ev.caveat||''));
+    messages.appendChild(card);toggleEmpty();scrollDown();
+  }
+}
+function finishJob(state){
+  if(state.kind==='train'){finishTrain(state);return}
+  const r=state.result||{};
+  if(state.status==='error'&&!r.images?.length){addAssistant([{text:'Il processo si è fermato. '+(state.error||r.error||'')}],true);return}
+  const flagged=(r.images||[]).filter(i=>i.flagged).length,n=(r.images||[]).length;
+  const outcome=n+(n===1?' immagine analizzata':' immagini analizzate')+(flagged?', '+flagged+' con criticità: servono occhi umani.':', nessuna contraddizione rilevata.');
+  const hd=r.human_decision?'Decisione umana: '+{accepted:'accettate',rejected:'rifiutate',accepted_with_note:'accettate con nota'}[r.human_decision.decision]+(r.human_decision.note?' — '+r.human_decision.note:''):'';
+  addAssistant([
+    settings.explain&&r.process_summary?{title:'Cosa è successo',text:r.process_summary}:null,
+    {title:'Esito',text:[r.overall,outcome,hd].filter(Boolean).join('\n')},
+    {title:'Agenti',text:'Testing agent: '+(r.tester==='deterministic'?'voto pesato':r.tester)+' · Reviewer: '+(r.reviewer==='deterministic'?'controlli automatici':r.reviewer)},
+  ],true);
+  (r.images||[]).forEach(img=>renderResult(state.id,img));
+  addAssistant([{text:'Prototipo di ricerca addestrato su immagini 28×28 di DermaMNIST: non è una diagnosi e non sostituisce la visita di un dermatologo.'}]);
+}
+
+/* ---------- jobs ---------- */
+function setBusy(value,waiting){busy=value;sendButton.disabled=value;$('#processButton').classList.toggle('running',value&&!waiting);$('#processButton').classList.toggle('waiting',!!waiting);
+  setStatusPill(waiting?'warn':value?'busy':'good',waiting?'Attende te':value?'Al lavoro':'Pronto')}
+function setStatusPill(level,text){$('#statusDot').className='status-dot '+level;$('#statusLabel').textContent=text}
+function openLayer(e){e.classList.add('open');e.setAttribute('aria-hidden','false')}
+function closeLayer(e){e.classList.remove('open');e.setAttribute('aria-hidden','true')}
+function openProcess(){openLayer($('#processOverlay'));requestAnimationFrame(drawEdges)}
+function closeProcess(){closeLayer($('#processOverlay'))}
+async function poll(job){
+  currentJob=job;
+  const response=await fetch('/api/status?id='+encodeURIComponent(job)),state=await response.json();
+  if(!response.ok)throw new Error(state.error||'stato non disponibile');
+  lastJobState=state;
+  $('#progress').style.width=(state.percent||0)+'%';$('#stage').textContent=state.stage||'';
+  $('#graphState').textContent={running:'In corso',complete:'Completato',error:'Interrotto',waiting_human:'Attende la tua decisione'}[state.status]||state.status;
+  renderGraph(state.graph,state.steps,state.kind);renderActivity(state.activities);renderTraining(state.training,state.kind);
+  if(state.status==='waiting_human'){
+    // one job can pause many times (plan, each proposal, promotion): key on the pause, not the job
+    const key=job+'|'+(state.interrupt?.kind||'review')+'|'+state.activities.length;
+    setBusy(true,true);if(humanShownFor!==key){humanShownFor=key;showHuman(state)}setTimeout(()=>poll(job).catch(fail),1500);return}
+  if(state.status==='complete'||state.status==='error'){setBusy(false);finishJob(state);currentJob=null;refreshHealth(true);return}
+  setBusy(true);setTimeout(()=>poll(job).catch(fail),600);
+}
+function fail(error){setBusy(false);addAssistant([{text:'Non sono riuscito a completare la richiesta. '+(error.message||error)}])}
+async function run(samples,uploads,text){
+  if(busy)return;
+  await ensureSettings();
+  const thumbs=samples.map(s=>'/api/sample?name='+encodeURIComponent(s)).concat(uploads.map(u=>u.data));
+  if(samples[0]==='*')thumbs.splice(0,1,...(lastHealth?.samples||[]).map(s=>'/api/sample?name='+encodeURIComponent(s)));
+  const n=samples[0]==='*'?(lastHealth?.samples||[]).length:samples.length+uploads.length;
+  addUser((text||'Analizza '+(n===1?'questa immagine':'queste '+n+' immagini'))+'.',thumbs);
+  setBusy(true);humanShownFor=null;
+  renderGraph({orchestrator:'active',human:settings.askHuman?'idle':'skipped'},{human:{decision:settings.askHuman?'idle':'skipped'}});renderActivity([]);
+  try{
+    const response=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({samples,uploads,request:text,settings})});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||'richiesta fallita');
+    lastJob=data.job;try{localStorage.setItem('dermaLastJob',lastJob)}catch(e){}openProcess();poll(data.job).catch(fail);
+  }catch(error){fail(error)}
+}
+async function ensureSettings(){
+  if(settings)return;
+  if(!lastHealth)await refreshHealth(true);
+  settings={testerModel:lastHealth?.llm.default||'',reviewerModel:'same',trainerModel:'same',explain:true,askHuman:false,minBalancedAcc:0};
+  storeSettings();updateSettingsLabel();
+}
+// Text without images, or a training campaign: the orchestrator routes it (no keyword lists here).
+async function runText(text,mode,train,overrides){
+  if(busy)return;
+  await ensureSettings();
+  addUser(text||'Nuova campagna di training.',[]);
+  setBusy(true);humanShownFor=null;
+  renderGraph({orchestrator:'active',tester:'skipped',reviewer:'skipped'},{},'train');renderActivity([]);renderTraining({runs:{},trials:[],trials_done:0},'train');
+  try{
+    const response=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,request:text,train,settings:{...settings,...(overrides||{})}})});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||'richiesta fallita');
+    lastJob=data.job;try{localStorage.setItem('dermaLastJob',lastJob)}catch(e){}openProcess();poll(data.job).catch(fail);
+  }catch(error){fail(error)}
+}
+function submit(){
+  if(busy)return;
+  const text=promptBox.value.trim(),uploads=selected.slice();
+  if(!uploads.length){if(!text)return;promptBox.value='';promptBox.style.height='';runText(text,'');return}
+  promptBox.value='';promptBox.style.height='';selected=[];renderChips();run([],uploads,text);
+}
+function renderChips(){
+  const box=$('#fileChips');box.innerHTML='';
+  selected.forEach((f,i)=>{const chip=el('div','file-chip'),im=el('img');im.src=f.data;im.alt='';const x=el('button','icon-btn subtle','×');x.style.cssText='width:22px;height:22px';x.onclick=()=>{selected.splice(i,1);renderChips()};chip.append(im,el('span',null,f.name),x);box.appendChild(chip)});
+}
+function chooseFiles(files){
+  [...files].forEach(file=>{
+    if(file.size>10*1024*1024){fail(new Error(file.name+' supera 10 MB.'));return}
+    const reader=new FileReader();reader.onload=()=>{if(selected.length<16){selected.push({name:file.name,data:reader.result});renderChips()}};reader.readAsDataURL(file);
+  });
+  $('#file').value='';
+}
+
+/* ---------- human in the loop ---------- */
+let humanKind=null,planOriginal={};
+function section(title,node){const s=el('div','hm-section');s.appendChild(el('h4',null,title));if(typeof node==='string')s.appendChild(el('div','hm-text',node));else s.appendChild(node);return s}
+function kvt(pairs){const d=el('dl','kvt');pairs.filter(p=>p[1]!==undefined&&p[1]!==null&&p[1]!=='').forEach(([k,v])=>d.append(el('dt',null,k),el('dd',null,typeof v==='object'?JSON.stringify(v):String(v))));return d}
+function issuesList(list){const box=el('div');(list||[]).forEach(i=>{const r=el('div','issue'),t=el('div',null,i.description);r.append(el('span','sev '+i.severity,i.severity),t);box.appendChild(r)});return box}
+function planEditor(plan,editable){
+  const g=el('div','grid2'),archs=Object.keys(lastHealth?.archs||{fpvit:1});
+  const choices={arch:archs,autonomy:['supervised','guarded','autonomous'],select_on:['balanced_acc','macro_f1','macro_auc']};
+  const labels={arch:'Architettura',autonomy:'Autonomia',select_on:'Metrica di selezione',max_trials:'Run massimi',max_minutes:'Budget (minuti)',max_epochs_per_run:'Epoche max per run',patience:'Trigger (epoche senza miglioramento)',target_score:'Obiettivo'};
+  planOriginal={};
+  editable.forEach(k=>{
+    const f=el('div','field'),lab=el('label',null,labels[k]||k);let input;
+    if(choices[k]){input=el('select');choices[k].forEach(v=>{const o=el('option',null,v);o.value=v;input.appendChild(o)})}
+    else{input=el('input');input.type='number';input.step='any'}
+    input.value=plan[k]??'';input.dataset.edit=k;planOriginal[k]=String(plan[k]??'');f.append(lab,input);g.appendChild(f);
+  });
+  return g;
+}
+function augSummary(a){
+  if(!a||typeof a!=='object')return '';
+  const parts=[];
+  if(a.horizontal_flip||a.vertical_flip||a.rotate_90)parts.push('diedrale: flip '+(a.horizontal_flip||0)+'/'+(a.vertical_flip||0)+(a.rotate_90?' + rotazioni 90°':''));
+  if(a.random_resized_crop)parts.push('crop interno '+a.rrc_scale_min+'–'+a.rrc_scale_max);
+  if(a.rotation_degrees)parts.push('rotazione ±'+a.rotation_degrees+'°');
+  if(a.color_jitter)parts.push('colore: luminosità '+a.cj_brightness+', contrasto '+a.cj_contrast+', saturazione '+a.cj_saturation+', hue '+a.cj_hue);
+  if(a.cutout)parts.push('cutout '+a.cutout_size+'px p='+a.cutout_p);
+  return parts.join(' · ')||'nessuna';
+}
+function showHuman(state){
+  const it=state.interrupt||{},body=$('#humanBody'),acts=$('#humanActions');
+  humanKind=it.kind||'review_flags';body.innerHTML='';acts.innerHTML='';
+  $('#humanNote').value='';$('#humanStatus').textContent='';$('#humanStatus').className='form-status';
+  $('#humanNoteLabel').textContent='Nota (facoltativa)';$('#humanNote').placeholder='';
+  let title='Serve una tua decisione',intro=it.question||'',options=it.options;
+  if(humanKind==='review_flags'){
+    title='Il reviewer chiede una decisione';intro='Il processo è in pausa. Queste previsioni hanno criticità segnalate dal reviewer:';
+    (it.flagged||[]).forEach(f=>{const x=el('div','flag-item');x.appendChild(el('b',null,f.file+' → '+f.final_class));x.appendChild(issuesList(f.issues));body.appendChild(x)});
+    $('#humanNote').placeholder='es. da rivedere con dermatoscopio';
+    options=[{value:'rejected',label:'Rifiuta'},{value:'accepted',label:'Accetta'}];
+  }else if(humanKind==='clarify_intent'){
+    title='Cosa vuoi fare?';intro=it.question+(it.reason?'\n('+it.reason+')':'');
+  }else if(humanKind==='approve_plan'){
+    title='Approvi il piano di training?';const p=it.plan||{},e=it.ensemble||{};
+    body.appendChild(section('Obiettivo',p.goal||''));
+    body.appendChild(section('Ensemble di previsione oggi',kvt([['Modelli',(e.models||[]).map(m=>m.name+' ('+m.arch+', '+(+m.val_balanced_acc).toFixed(3)+')').join(', ')],['Migliore bal.acc val',(+e.best_val_balanced_acc||0).toFixed(3)],['Classi deboli',(e.weak_classes||[]).join(', ')||'—'],['LLM',p.llm]])));
+    body.appendChild(section('Piano (modificabile)',planEditor(p,it.editable||[])));
+    $('#humanNoteLabel').textContent='Indicazioni per il training agent (facoltative)';$('#humanNote').placeholder='es. prova prima una CNN, evita il cutout';
+  }else if(humanKind==='approve_proposal'){
+    title='Il training agent propone un run';const pr=it.proposal||{};
+    const fpvitOnly=['embed_dim','depth','num_heads'];
+    body.appendChild(section('Proposta',kvt([['Azione',pr.action==='warm_restart'?'warm restart da '+pr.parent_run:pr.action==='stop'?'fermarsi':'nuovo run'],['Architettura',pr.arch],['Iperparametri',Object.entries(pr.hparams||{}).filter(([k])=>pr.arch==='fpvit'||!fpvitOnly.includes(k)).map(([k,v])=>k+' '+v).join(' · ')],['Affronta',(pr.addresses||[]).join(', ')||'—'],['Fonti KB',(pr.knowledge_used||[]).join(', ')||'—']])));
+    body.appendChild(section('Perché',pr.rationale||''));
+    body.appendChild(section('Augmentation: '+augSummary(it.augmentation_resolved),pr.augmentation_rationale||'(nessuna motivazione)'));
+    if(it.changes&&Object.keys(it.changes).length)body.appendChild(section('Cosa cambia rispetto al riferimento',kvt(Object.entries(it.changes).map(([k,v])=>[k,Array.isArray(v)?v.join(' → '):JSON.stringify(v)]))));
+    body.appendChild(section('Perché serve la tua approvazione',(it.why_human||[]).join('\n')));
+    if((it.findings||[]).length)body.appendChild(section('Il training reviewer segnala',issuesList(it.findings)));
+    $('#humanNoteLabel').textContent='Feedback per il proposer (usato se chiedi un\'altra proposta)';
+  }else if(humanKind==='approve_promotion'){
+    title='Promuovere il candidato nell\'ensemble?';const c=it.candidate||{},ev=it.evaluation||{};
+    body.appendChild(section('Candidato',kvt([['Run',c.run],['Architettura',c.arch],[c.selection_metric||'score',(+c.best_score||0).toFixed(4)],['Cartella',c.dir]])));
+    if(ev.ensemble_now)body.appendChild(section('Ensemble di validazione',kvt([['Oggi',ev.ensemble_now.balanced_acc.toFixed(4)],['Con il candidato',ev.ensemble_with_candidate.balanced_acc.toFixed(4)],['Differenza',(ev.delta_balanced_acc>=0?'+':'')+ev.delta_balanced_acc.toFixed(4)],['Raccomandazione',it.recommendation]])));
+    if(ev.recall_changes)body.appendChild(section('Recall per classe',kvt(Object.entries(ev.recall_changes).filter(([,v])=>v).map(([k,v])=>[k,(v>0?'+':'')+v.toFixed(3)]))));
+    body.appendChild(el('div','stamp',ev.caveat||''));
+  }
+  $('#humanTitle').textContent=title;$('#humanIntro').textContent=intro;
+  const later=el('button','ghost-btn','Decido dopo');later.onclick=()=>closeLayer($('#humanModal'));acts.appendChild(later);
+  (options||[]).forEach(o=>{const bad=['reject','rejected','stop','cancel'].includes(o.value);const b=el('button',bad?'danger-btn':'primary',o.label);b.onclick=()=>decide(o.value);acts.appendChild(b)});
+  openLayer($('#humanModal'));
+}
+async function decide(decision){
+  const note=$('#humanNote').value.trim();if(decision==='accepted'&&note)decision='accepted_with_note';
+  const edits={};
+  if(humanKind==='approve_plan')document.querySelectorAll('#humanBody [data-edit]').forEach(i=>{if(String(i.value)!==planOriginal[i.dataset.edit])edits[i.dataset.edit]=i.value});
+  try{
+    const r=await fetch('/api/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job:currentJob,decision,note,edits})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'errore');closeLayer($('#humanModal'));
+  }catch(e){$('#humanStatus').textContent=e.message;$('#humanStatus').className='form-status error'}
+}
+
+/* ---------- settings & health ---------- */
+function modelOptions(select,options,extra){
+  select.innerHTML='';extra.concat(options.map(o=>[o,o])).concat([['custom','Altro…']]).forEach(([v,l])=>{const o=el('option',null,l);o.value=v;select.appendChild(o)});
+}
+function setModelField(select,input,value,fallback){
+  const has=[...select.options].some(o=>o.value===value);
+  select.value=has?value:(value?'custom':fallback);input.value=has?'':(value||'');input.style.display=select.value==='custom'?'block':'none';
+}
+async function openSettings(){
+  if(!lastHealth)await refreshHealth(true);
+  const opts=lastHealth?.llm.options||[];
+  modelOptions($('#testerModel'),opts,[['none','Nessuno — solo voto pesato']]);
+  modelOptions($('#reviewerModel'),opts,[['same','Lo stesso del Testing agent'],['none','Nessuno — solo controlli automatici']]);
+  modelOptions($('#trainerModel'),opts,[['same','Lo stesso del Testing agent'],['none','Nessuno — politica deterministica']]);
+  const s=settings||{testerModel:lastHealth?.llm.default||'none',reviewerModel:'same',explain:true,askHuman:false,minBalancedAcc:0};
+  setModelField($('#testerModel'),$('#testerCustom'),s.testerModel||'none','none');
+  setModelField($('#reviewerModel'),$('#reviewerCustom'),s.reviewerModel||'same','same');
+  setModelField($('#trainerModel'),$('#trainerCustom'),s.trainerModel||'same','same');
+  $('#explain').checked=!!s.explain;$('#askHuman').checked=!!s.askHuman;$('#minAcc').value=s.minBalancedAcc||0;
+  $('#settingsStatus').textContent=opts.length?'':'Nessun LLM rilevato: avvia Ollama o imposta ANTHROPIC_API_KEY, oppure usa gli agenti senza LLM.';
+  openLayer($('#settingsModal'));
+}
+function saveSettings(){
+  const pick=(sel,inp)=>sel.value==='custom'?inp.value.trim():sel.value;
+  settings={testerModel:pick($('#testerModel'),$('#testerCustom')),reviewerModel:pick($('#reviewerModel'),$('#reviewerCustom')),
+    trainerModel:pick($('#trainerModel'),$('#trainerCustom')),
+    explain:$('#explain').checked,askHuman:$('#askHuman').checked,minBalancedAcc:Number($('#minAcc').value)||0};
+  if(settings.testerModel==='none')settings.testerModel='';
+  storeSettings();updateSettingsLabel();closeLayer($('#settingsModal'));
+}
+function updateSettingsLabel(){
+  if(!settings){$('#settingsLabel').textContent='Agenti';return}
+  const short=m=>!m?'voto':m.replace(/^ollama:/,'').replace(/:latest$/,'');
+  const rv=settings.reviewerModel==='same'?settings.testerModel:settings.reviewerModel;
+  $('#settingsLabel').textContent=short(settings.testerModel)+(rv!==settings.testerModel?' / '+short(rv):'');
+}
+async function refreshHealth(silent){
+  try{
+    const h=await fetch('/api/health').then(r=>r.json());lastHealth=h;
+    const rows=[['dotModels','valModels',h.models.length>0,h.models.length+' modelli'],
+      ['dotKnowledge','valKnowledge',h.knowledge.ready,h.knowledge.sources+' fonti, '+h.knowledge.chunks+' passaggi'],
+      ['dotLogs','valLogs',true,h.logs.predictions+' previsioni, '+h.logs.reviews+' revisioni'],
+      ['dotLLM','valLLM',h.llm.options.length>0,h.llm.options.length?h.llm.options.length+' (Ollama'+(h.llm.anthropic?', Claude':'')+')':'nessuno']];
+    rows.forEach(([d,v,ok,t])=>{$('#'+d).className='status-dot '+(ok?'good':'warn');$('#'+v).textContent=t});
+    $('#memLogs').textContent='runs_predict/predictions_log.jsonl: '+h.logs.predictions+' righe · reviews_log.jsonl: '+h.logs.reviews+' righe. Richiamo esatto per SHA-256 dell\'immagine.';
+    $('#memKB').textContent=h.knowledge.chunks+' passaggi da '+h.knowledge.sources+' fonti (corpus.json), ricerca TF-IDF.';
+    const mm=$('#memModels');mm.innerHTML='';
+    h.models.forEach(m=>{const r=el('div','model-row');r.append(el('span',null,m.name+' · ep '+m.epoch),el('b',null,'bal.acc '+m.val_balanced_acc.toFixed(2)));const t=el('div','track'),i=el('i');i.style.width=Math.min(100,m.skill/0.86*100)+'%';t.appendChild(i);r.appendChild(t);mm.appendChild(r)});
+    if(!$('#sampleStrip').children.length)h.samples.forEach(s=>{const b=el('button','sample'),im=el('img');im.src='/api/sample?name='+encodeURIComponent(s);im.alt=s;b.append(im,el('span',null,s.replace(/^\d+_/,'').replace(/\.\w+$/,'').replace(/_/g,' ')));b.title=s;b.onclick=()=>run([s],[],'');$('#sampleStrip').appendChild(b)});
+    if(!busy)setStatusPill(h.models.length?'good':'warn',h.models.length?'Pronto':'Nessun modello');
+  }catch(e){if(!silent)setStatusPill('warn','Non raggiungibile')}
+}
+
+/* ---------- training campaign ---------- */
+async function openTrain(){
+  if(!lastHealth)await refreshHealth(true);
+  await ensureSettings();
+  const a=$('#trainArch');a.innerHTML='';
+  [['auto','Decide l\'agente (default FPViT)']].concat(Object.entries(lastHealth?.archs||{}).map(([k,v])=>[k,k+' — '+v])).forEach(([v,l])=>{const o=el('option',null,l);o.value=v;a.appendChild(o)});
+  const m=$('#trainModel');m.innerHTML='';
+  [['same','Come nelle impostazioni ('+((settings.trainerModel&&settings.trainerModel!=='same')?settings.trainerModel:(settings.testerModel||'nessuno'))+')'],['none','Nessuno — politica deterministica']].concat((lastHealth?.llm.options||[]).map(o=>[o,o])).forEach(([v,l])=>{const o=el('option',null,l);o.value=v;m.appendChild(o)});
+  $('#trainStatus').textContent='';openLayer($('#trainModal'));
+}
+function startTrain(){
+  const num=id=>{const v=$(id).value;return v===''?null:Number(v)};
+  const train={arch:$('#trainArch').value,autonomy:$('#trainAutonomy').value,max_trials:num('#trainTrials'),max_minutes:num('#trainMinutes'),
+    max_epochs_per_run:num('#trainEpochs'),patience:num('#trainPatience'),select_on:$('#trainSelect').value,target_score:num('#trainTarget')};
+  const mv=$('#trainModel').value,overrides=mv==='same'?{}:{trainerModel:mv==='none'?'none':mv};
+  const text=$('#trainRequest').value.trim();
+  closeLayer($('#trainModal'));runText(text,'train',train,overrides);
+}
+
+/* ---------- wiring ---------- */
+buildSteps();
+document.querySelectorAll('[data-samples]').forEach(b=>b.onclick=()=>run([b.dataset.samples],[],''));
+$('#suggestSettings').onclick=openSettings;
+$('#suggestProcess').onclick=openProcess;
+$('#openKB').onclick=openKB;$('#openKB').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openKB()}};
+sendButton.onclick=submit;
+promptBox.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}};
+promptBox.oninput=()=>{promptBox.style.height='';promptBox.style.height=Math.min(130,promptBox.scrollHeight)+'px'};
+$('#file').onchange=e=>chooseFiles(e.target.files);
+$('#newChat').onclick=()=>{if(busy)return;messages.innerHTML='';selected=[];renderChips();toggleEmpty();$('#progress').style.width='0';$('#stage').textContent='Nessun processo in corso.';$('#graphState').textContent='In attesa';renderActivity([]);renderGraph({});renderTraining(null,'predict')};
+$('#processButton').onclick=openProcess;$('#closeProcess').onclick=closeProcess;
+$('#processOverlay').onclick=e=>{if(e.target===e.currentTarget)closeProcess()};
+$('#statusButton').onclick=e=>{e.stopPropagation();const open=$('#statusPopover').classList.toggle('open');$('#statusButton').setAttribute('aria-expanded',open?'true':'false');if(open)refreshHealth(true)};
+document.addEventListener('click',e=>{if(!$('#statusPopover').contains(e.target)&&!$('#statusButton').contains(e.target)){$('#statusPopover').classList.remove('open');$('#statusButton').setAttribute('aria-expanded','false')}});
+$('#settingsButton').onclick=openSettings;$('#closeSettings').onclick=()=>closeLayer($('#settingsModal'));$('#cancelSettings').onclick=()=>closeLayer($('#settingsModal'));
+$('#saveSettings').onclick=saveSettings;
+$('#testerModel').onchange=()=>$('#testerCustom').style.display=$('#testerModel').value==='custom'?'block':'none';
+$('#reviewerModel').onchange=()=>$('#reviewerCustom').style.display=$('#reviewerModel').value==='custom'?'block':'none';
+$('#trainerModel').onchange=()=>$('#trainerCustom').style.display=$('#trainerModel').value==='custom'?'block':'none';
+$('#trainButton').onclick=()=>{if(!busy)openTrain()};$('#closeTrain').onclick=()=>closeLayer($('#trainModal'));$('#cancelTrain').onclick=()=>closeLayer($('#trainModal'));$('#startTrain').onclick=startTrain;
+$('#processButton').addEventListener('click',()=>{if(lastJobState?.status==='waiting_human')showHuman(lastJobState)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeProcess();closeLayer($('#settingsModal'));closeLayer($('#trainModal'));$('#statusPopover').classList.remove('open')}});
+window.addEventListener('resize',()=>{sizeApp();drawEdges()});window.visualViewport?.addEventListener('resize',sizeApp);
+toggleEmpty();sizeApp();renderGraph({});updateSettingsLabel();
+refreshHealth();setInterval(()=>refreshHealth(true),20000);
+</script>
+</body></html>
