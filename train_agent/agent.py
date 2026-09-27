@@ -2,7 +2,7 @@
 """
 Entry points for the training agent: builder and CLI.
 
-    python -m train_agent "migliora il riconoscimento del dermatofibroma" --minutes 30
+    python -m train_agent "improve dermatofibroma recognition" --minutes 30
     python -m train_agent --arch resnet18 --trials 3 --minutes 20 --no-llm -v
     python -m train_agent --model ollama:qwen3.6:latest --autonomy supervised
 
@@ -61,31 +61,31 @@ def answer_interrupt(payload: dict) -> dict:
     if kind == "approve_plan":
         for k, v in payload["plan"].items():
             print(f"  {k}: {v}", file=err)
-        print(f"  (modificabili: {', '.join(payload['editable'])})", file=err)
+        print(f"  (editable: {', '.join(payload['editable'])})", file=err)
     elif kind == "approve_proposal":
         pr = payload["proposal"]
-        print(f"  azione: {pr['action']}  arch: {pr['arch']}  parent: {pr.get('parent_run')}", file=err)
-        print(f"  iperparametri: {pr['hparams']}", file=err)
-        print(f"  motivazione: {pr['rationale']}", file=err)
+        print(f"  action: {pr['action']}  arch: {pr['arch']}  parent: {pr.get('parent_run')}", file=err)
+        print(f"  hyperparameters: {pr['hparams']}", file=err)
+        print(f"  rationale: {pr['rationale']}", file=err)
         print(f"  augmentation: {payload['augmentation_resolved']}", file=err)
-        print(f"  perché: {pr['augmentation_rationale']}", file=err)
-        print(f"  modifiche: {payload['changes']}", file=err)
+        print(f"  why: {pr['augmentation_rationale']}", file=err)
+        print(f"  changes: {payload['changes']}", file=err)
         for r in payload["why_human"]:
             print(f"  → {r}", file=err)
         for f in payload["findings"]:
             print(f"  [{f['severity']}] {f['description']}", file=err)
     elif kind == "approve_promotion":
         ev = payload["evaluation"]
-        print(f"  candidato {payload['candidate']['run']}: ensemble {ev['ensemble_now']['balanced_acc']:.4f} → "
+        print(f"  candidate {payload['candidate']['run']}: ensemble {ev['ensemble_now']['balanced_acc']:.4f} → "
               f"{ev['ensemble_with_candidate']['balanced_acc']:.4f} ({ev['delta_balanced_acc']:+.4f}); "
-              f"raccomandazione: {payload['recommendation']}", file=err)
+              f"recommendation: {payload['recommendation']}", file=err)
     opts = payload.get("options", [])
     print("  " + "   ".join(f"[{o['value'][0]}] {o['label']}" for o in opts), file=err)
     choice = _ask("> ").lower()[:1]
     decision = next((o["value"] for o in opts if o["value"][0] == choice), "reject")
-    out = {"decision": decision, "note": _ask("nota (invio per saltare): ")}
+    out = {"decision": decision, "note": _ask("note (enter to skip): ")}
     if kind == "approve_plan" and decision == "approve":
-        raw = _ask("modifiche chiave=valore separate da spazio (invio per nessuna): ")
+        raw = _ask("edits as key=value separated by spaces (enter for none): ")
         out["edits"] = dict(kv.split("=", 1) for kv in raw.split() if "=" in kv)
     return out
 

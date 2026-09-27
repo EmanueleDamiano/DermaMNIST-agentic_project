@@ -89,45 +89,45 @@ def run_checks(test: dict, reviewer_kb: list[list[dict]]) -> list[list[dict]]:
 
         if test.get("llm_error"):
             found.append(_finding(file, "warning", "pipeline_error",
-                                  "Il ragionamento LLM del tester è fallito: la risposta è il solo voto.",
+                                  "The tester's LLM reasoning failed: the answer is the vote alone.",
                                   test["llm_error"]))
         if file in rejected:
             found.append(_finding(file, "warning", "vote_inconsistency",
-                                  "Il tester ha proposto una classe che nessun modello sosteneva; "
-                                  "il codice l'ha rifiutata e ha tenuto il voto."))
+                                  "The tester proposed a class no model supported; "
+                                  "the code rejected it and kept the vote."))
         if f["overridden"]:
             found.append(_finding(file, "warning", "vote_inconsistency",
-                                  f"Il tester ha scavalcato il voto ({v['vote_class']} → {f['final_class']}): "
-                                  "verificare che la motivazione lo giustifichi.",
+                                  f"The tester overrode the vote ({v['vote_class']} → {f['final_class']}): "
+                                  "check that the rationale justifies it.",
                                   f"vote p={v['vote_probability']}, margin={v['margin']}"))
         if LEVELS[f["confidence_level"]] > LEVELS[v["confidence_level"]]:
             found.append(_finding(file, "warning", "vote_inconsistency",
-                                  f"Confidenza dichiarata '{f['confidence_level']}' più alta di quella "
-                                  f"calcolata dal voto ('{v['confidence_level']}').",
+                                  f"Stated confidence '{f['confidence_level']}' is higher than the one "
+                                  f"computed by the vote ('{v['confidence_level']}').",
                                   f"margin={v['margin']}, agree={v['models_agreeing_with_vote']}"))
         if f["confidence_level"] == "low":
             found.append(_finding(file, "warning", "model_reliability",
-                                  "Confidenza bassa: i modelli non convergono, serve una valutazione clinica.",
+                                  "Low confidence: the models do not converge, a clinical assessment is needed.",
                                   f"margin={v['margin']}, agree={v['models_agreeing_with_vote']}"))
 
         top2 = {v["vote_class_id"], v["runner_up_class_id"]}
         if top2 == {MELANOMA, NEVUS} and v["margin"] < CLOSE_CALL_MARGIN:
             found.append(_finding(file, "critical", "model_reliability",
-                                  "Melanoma e nevo sono le prime due classi con margine stretto: "
-                                  "è la confusione più costosa, non va presentata come certa.",
+                                  "Melanoma and nevus are the top two classes with a narrow margin: "
+                                  "the costliest confusion, it must not be presented as certain.",
                                   f"margin={v['margin']}"))
         if cls == MELANOMA or MELANOMA in top2:
             found.append(_finding(file, "info", "model_reliability",
-                                  "Il melanoma è tra le classi in gioco: la decisione ha implicazioni cliniche."))
+                                  "Melanoma is among the classes in play: the decision has clinical implications."))
 
         for p in f.get("past_predictions", []):
             if p["final_class"] != f["final_class"]:
                 same_models = set(p["models"]) == {m["name"] for m in test["models"]}
                 found.append(_finding(file, "warning", "memory_conflict",
-                                      f"In passato ({p['timestamp']}) la stessa immagine era stata "
-                                      f"classificata {p['final_class']}."
-                                      + ("" if same_models else " L'ensemble nel frattempo è cambiato."),
-                                      f"modelli allora: {p['models']}"))
+                                      f"Previously ({p['timestamp']}) the same image was "
+                                      f"classified as {p['final_class']}."
+                                      + ("" if same_models else " The ensemble has changed since then."),
+                                      f"models then: {p['models']}"))
                 break
 
         raw = raw_by_file.get(file, {})
@@ -135,30 +135,30 @@ def run_checks(test: dict, reviewer_kb: list[list[dict]]) -> list[list[dict]]:
         invented = [c for c in raw.get("knowledge_used", []) if c not in retrieved]
         if invented:
             found.append(_finding(file, "warning", "unsupported_claim",
-                                  "Il tester cita chunk della KB che non gli erano stati forniti.",
+                                  "The tester cites KB chunks it was not given.",
                                   f"{invented}"))
         m = _VISUAL_CLAIM.search(f.get("rationale", ""))
         if m:
             found.append(_finding(file, "critical", "unsupported_claim",
-                                  "La motivazione descrive l'aspetto dell'immagine, ma il tester non la vede: "
-                                  "l'affermazione non ha base.",
+                                  "The rationale describes how the image looks, but the tester cannot see it: "
+                                  "the claim has no basis.",
                                   f"«...{f['rationale'][max(0, m.start() - 40): m.end() + 40]}...»"))
 
         if cls in strongest["blind_classes"]:
             found.append(_finding(file, "info", "model_reliability",
-                                  f"Il modello più forte ({strongest['name']}) non riconosce mai questa "
-                                  "classe in validazione: la previsione poggia sui modelli più deboli."))
+                                  f"The strongest model ({strongest['name']}) never recognises this "
+                                  "class on validation: the prediction rests on the weaker models."))
         if f.get("resized_from"):
             found.append(_finding(file, "warning", "input_quality",
-                                  f"Immagine ridimensionata da {f['resized_from']} a 28x28: fuori "
-                                  "distribuzione rispetto al training."))
+                                  f"Image resized from {f['resized_from']} to 28x28: out of "
+                                  "distribution with respect to training."))
 
         best_kb = max((c["score"] for c in reviewer_kb[i]
                        if c.get("about_class") == CLASS_NAMES[cls]), default=0.0)
         if best_kb < KB_WEAK_SCORE:
             found.append(_finding(file, "info", "kb_coverage",
-                                  f"La knowledge base contiene poco su '{f['final_class']}': la verifica "
-                                  "di coerenza con la letteratura è debole.",
-                                  f"miglior score {best_kb:.3f}"))
+                                  f"The knowledge base holds little on '{f['final_class']}': the "
+                                  "consistency check against the literature is weak.",
+                                  f"best score {best_kb:.3f}"))
         out.append(found)
     return out

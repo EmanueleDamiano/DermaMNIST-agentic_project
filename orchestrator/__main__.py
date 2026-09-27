@@ -2,9 +2,9 @@
 """
 CLI of the orchestrator: prediction (testing agent -> reviewer) or training (training agent).
 
-    python -m orchestrator --train "migliora il riconoscimento del dermatofibroma" --no-llm
-    python -m orchestrator --train --model ollama:qwen3.6:latest "addestra una resnet18 per 20 minuti"
-    python -m orchestrator "vorrei un modello migliore" --train      # the router extracts the constraints
+    python -m orchestrator --train "improve dermatofibroma recognition" --no-llm
+    python -m orchestrator --train --model ollama:qwen3.6:latest "train a resnet18 for 20 minutes"
+    python -m orchestrator "I'd like a better model" --train       # the router extracts the constraints
 
     python -m orchestrator test_samples/05_melanoma.png
     python -m orchestrator test_samples --no-llm                  # vote + automatic checks, no API key
@@ -31,7 +31,7 @@ def _ask(payload: dict) -> dict:
         print(f"\n  {item['file']} → {item['final_class']}", file=sys.stderr)
         for i in item["issues"]:
             print(f"    [{i['severity']}] {i['description']}", file=sys.stderr)
-    print("\n  [a] accetta   [r] rifiuta   [n] accetta con nota", file=sys.stderr)
+    print("\n  [a] accept   [r] reject   [n] accept with a note", file=sys.stderr)
     choice = ""
     while choice not in {"a", "r", "n"}:
         try:
@@ -42,7 +42,7 @@ def _ask(payload: dict) -> dict:
     decision = {"a": "accepted", "r": "rejected", "n": "accepted_with_note"}[choice]
     note = ""
     if choice == "n":
-        print("nota: ", end="", file=sys.stderr, flush=True)
+        print("note: ", end="", file=sys.stderr, flush=True)
         try:
             note = input().strip()
         except EOFError:

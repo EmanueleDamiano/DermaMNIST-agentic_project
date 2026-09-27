@@ -104,7 +104,7 @@ the user what the pipeline did, in order (what was read, memory, which models,
 how they voted, what was retrieved, how the decision was made). Otherwise "".
 
 Never re-classify an image yourself. Write in the language of the request;
-Italian if there is no request.
+English if there is no request.
 """
 
 
@@ -147,22 +147,22 @@ def _deterministic_review(test: dict, checks, decisive) -> dict:
             "file": f["file"],
             "verdict": "issues_found" if any(c["severity"] != "info" for c in found) else "consistent",
             "issues": [],
-            "user_summary": (f"Classe proposta: {f['final_class']} (confidenza {f['confidence_level']}). "
-                             f"Motivazione del tester: {f['rationale']}"),
+            "user_summary": (f"Proposed class: {f['final_class']} (confidence {f['confidence_level']}). "
+                             f"Tester's rationale: {f['rationale']}"),
             "decisive_model_explanation": _decisive_text(d),
         })
     return {"images": images, "process_summary": "", "overall": ""}
 
 
 def _decisive_text(d: dict) -> str:
-    agree = ("concorda" if d["strongest_model_agrees"]
-             else f"non concorda (indica {d['strongest_model_top_class']})")
-    return (f"{d['model']} porta il {d['share_of_final_class_score']:.0%} del punteggio della classe "
-            f"finale: p={d['probability_for_final_class']:.2f}, skill {d['skill']:.2f} "
-            f"(bal.acc val {d['val_balanced_acc']:.2f}), precision di val su questa classe "
-            f"{d['val_precision_for_final_class']:.2f}; addestrato {d['epoch']} epoche, "
+    agree = ("agrees" if d["strongest_model_agrees"]
+             else f"disagrees (it points to {d['strongest_model_top_class']})")
+    return (f"{d['model']} carries {d['share_of_final_class_score']:.0%} of the final class "
+            f"score: p={d['probability_for_final_class']:.2f}, skill {d['skill']:.2f} "
+            f"(val bal.acc {d['val_balanced_acc']:.2f}), val precision on this class "
+            f"{d['val_precision_for_final_class']:.2f}; trained {d['epoch']} epochs, "
             f"{d['optimizer']}, class_weight={d['class_weight']}. "
-            f"Il modello più forte ({d['strongest_model']}) {agree}.")
+            f"The strongest model ({d['strongest_model']}) {agree}.")
 
 
 def build_review_payload(state: dict) -> dict:
@@ -270,32 +270,32 @@ def build_reviewer_graph(kb: Optional[KnowledgeBase], llm=None, llm_name: str = 
         test, rv = state["test"], state["review"]
         lines, flagged = [], 0
         if state.get("explain_process") and rv.get("process_summary"):
-            lines += ["Cosa è successo", rv["process_summary"], ""]
+            lines += ["What happened", rv["process_summary"], ""]
 
         for f, r, found in zip(test["final"], rv["images"], state["checks"]):
             issues = sorted(found + r.get("issues", []), key=lambda i: SEVERITY_ORDER[i["severity"]])
             serious = [i for i in issues if i["severity"] in ("critical", "warning")]
             flagged += bool(serious)
-            lines.append(f"{f['file']} → {f['final_class']} (confidenza {f['confidence_level']})"
-                         + ("  ⚠ CRITICITÀ" if serious else "  ✓ coerente"))
+            lines.append(f"{f['file']} → {f['final_class']} (confidence {f['confidence_level']})"
+                         + ("  ⚠ ISSUES" if serious else "  ✓ consistent"))
             lines.append(f"  {r['user_summary']}")
-            lines.append(f"  Modello decisivo: {r['decisive_model_explanation']}")
+            lines.append(f"  Decisive model: {r['decisive_model_explanation']}")
             for i in issues:
                 ev = f" — {i['evidence']}" if i.get("evidence") else ""
                 lines.append(f"  [{i['severity']}] {i['description']}{ev}")
             if f.get("sources"):
-                lines.append("  Fonti: " + "; ".join(s["citation"] for s in f["sources"]))
+                lines.append("  Sources: " + "; ".join(s["citation"] for s in f["sources"]))
             lines.append("")
 
         needs_human = flagged > 0
         if rv.get("overall"):
             lines.append(rv["overall"])
-        lines.append(f"Esito revisione ({state['reviewer']}): {len(rv['images'])} immagini, "
-                     f"{flagged} con criticità"
-                     + (" → RICHIEDE REVISIONE UMANA." if needs_human
-                        else " → nessuna contraddizione rilevata."))
+        lines.append(f"Review outcome ({state['reviewer']}): {len(rv['images'])} images, "
+                     f"{flagged} with issues"
+                     + (" → NEEDS HUMAN REVIEW." if needs_human
+                        else " → no contradiction found."))
         if state.get("llm_error"):
-            lines.append(f"(revisione LLM fallita, solo controlli automatici: {state['llm_error']})")
+            lines.append(f"(LLM review failed, automatic checks only: {state['llm_error']})")
         lines += ["", DISCLAIMER]
         report = "\n".join(lines)
         return {"report": report, "needs_human_review": needs_human,

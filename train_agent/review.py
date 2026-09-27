@@ -29,15 +29,15 @@ def review_proposal(p: dict, ref: dict | None, facts: dict | None, retrieved_ids
     for claim in p.get("addresses", []):
         if claim in ISSUE_FLAGS and facts and claim not in flags:
             out.append(_f("warning", "unsupported_claim",
-                          f"la proposta dice di correggere '{claim}', ma i fatti del run non lo mostrano",
-                          f"flag calcolati: {sorted(flags) or 'nessuno'}"))
+                          f"the proposal claims to fix '{claim}', but the run's facts do not show it",
+                          f"computed flags: {sorted(flags) or 'none'}"))
 
     # 2. one change at a time (a campaign of 5 runs changing 4 things each teaches nothing)
     changes = diff_configs(p, ref)
     n = len(changes) - (1 if "epochs" in changes else 0)
     if ref and n > 2:
         out.append(_f("warning", "too_many_changes",
-                      f"cambia {n} cose insieme: se il risultato cambia non si saprà perché",
+                      f"changes {n} things at once: if the result changes, nobody will know why",
                       ", ".join(sorted(changes))))
 
     # 3. augmentation coherent with the diagnosis
@@ -52,15 +52,15 @@ def review_proposal(p: dict, ref: dict | None, facts: dict | None, retrieved_ids
                    new_aug.get("rotation_degrees", 0) > old_aug.get("rotation_degrees", 0)
         if stronger and "underfitting" in flags:
             out.append(_f("warning", "augmentation",
-                          "augmentation più forte mentre il modello è in underfitting: rende il "
-                          "problema più difficile invece di più facile"))
+                          "stronger augmentation while the model is underfitting: it makes the "
+                          "problem harder instead of easier"))
         if stronger and facts and "overfitting" not in flags:
             out.append(_f("info", "augmentation",
-                          "augmentation più forte senza overfitting misurato: è un regolarizzatore, "
-                          "da giustificare"))
+                          "stronger augmentation without measured overfitting: it is a regulariser "
+                          "and needs a justification"))
     if new_aug and new_aug.get("color_jitter") and new_aug.get("cj_hue", 0) > 0.03:
         out.append(_f("warning", "augmentation",
-                      "hue jitter alto su immagini dermoscopiche: il colore è un segnale diagnostico",
+                      "high hue jitter on dermoscopic images: colour is a diagnostic signal",
                       f"cj_hue={new_aug['cj_hue']}"))
 
     # 4. the prose matches the fields (a choice written only in the rationale is not executed)
@@ -74,20 +74,20 @@ def review_proposal(p: dict, ref: dict | None, facts: dict | None, retrieved_ids
     other_cw = [w for w in ("inverse", "effective") if w != chosen_cw and mentioned(w)]
     if other_cw and not mentioned(str(chosen_cw)):
         out.append(_f("warning", "prose_vs_fields",
-                      f"la motivazione parla di class_weight '{other_cw[0]}' ma il campo eseguito è "
-                      f"'{chosen_cw}'", "solo i campi vengono eseguiti"))
+                      f"the rationale talks about class_weight '{other_cw[0]}' but the executed field is "
+                      f"'{chosen_cw}'", "only the fields are executed"))
     chosen_pre = p["augmentation"]["preset"]
     other_pre = [w for w in ("dihedral", "strong", "paper") if w != chosen_pre and mentioned(w)]
     if other_pre and not mentioned(chosen_pre):
         out.append(_f("warning", "prose_vs_fields",
-                      f"la motivazione parla dell'augmentation '{other_pre[0]}' ma il preset eseguito è "
-                      f"'{chosen_pre}'", "solo i campi vengono eseguiti"))
+                      f"the rationale talks about the '{other_pre[0]}' augmentation but the executed preset is "
+                      f"'{chosen_pre}'", "only the fields are executed"))
 
     # 5. citations are real
     invented = [c for c in p.get("knowledge_used", []) if c not in retrieved_ids]
     if invented:
         out.append(_f("warning", "unsupported_claim",
-                      "cita passaggi della knowledge base che non gli erano stati forniti", str(invented)))
+                      "cites knowledge base passages it was not given", str(invented)))
 
     # 6. repeating a change that made things worse before
     def direction(pair):
@@ -104,8 +104,8 @@ def review_proposal(p: dict, ref: dict | None, facts: dict | None, retrieved_ids
                 and direction(pair) == direction(changes[k])]
         if same:
             out.append(_f("info", "memory",
-                          f"in {les['campaign']}/{les['run']} lo stesso cambiamento ({', '.join(same)}) "
-                          f"aveva peggiorato il punteggio di {les['delta']}"))
+                          f"in {les['campaign']}/{les['run']} the same change ({', '.join(same)}) "
+                          f"had worsened the score by {les['delta']}"))
             break
     return out
 
@@ -119,10 +119,10 @@ def review_diagnosis(diag: dict, facts: dict) -> list[dict]:
         said = diag.get(key)
         if said is True and flag not in flags:
             out.append(_f("warning", "diagnosis",
-                          f"l'analista dice '{key}' ma i numeri non lo mostrano: vale il calcolo",
+                          f"the analyst says '{key}' but the numbers do not show it: the computation wins",
                           f"gap {facts.get('gap_at_best')}→{facts.get('gap_at_end')}, "
                           f"stop_reason {facts.get('stop_reason')}"))
         if said is False and flag in flags:
             out.append(_f("info", "diagnosis",
-                          f"l'analista esclude '{key}' ma il calcolo lo rileva: vale il calcolo"))
+                          f"the analyst rules out '{key}' but the computation detects it: the computation wins"))
     return out

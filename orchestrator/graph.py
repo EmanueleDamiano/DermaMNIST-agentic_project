@@ -134,13 +134,13 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
         text = state.get("request") or _last_human_text(state.get("messages"))
         mode = state.get("mode") or ""
         if mode in ("predict", "train"):
-            return {"route": {"intent": mode, "by": "caller", "reason": "modalità esplicita"}}
+            return {"route": {"intent": mode, "by": "caller", "reason": "explicit mode"}}
         if state.get("image_paths") or paths_from_text(text):
             return {"route": {"intent": "predict", "by": "images",
-                              "reason": "la richiesta contiene immagini"}}
+                              "reason": "the request contains images"}}
         if router is None or not text.strip():
             return {"route": {"intent": "unclear", "by": "no_router",
-                              "reason": "nessuna immagine e nessun LLM per interpretare la richiesta"}}
+                              "reason": "no images and no LLM to interpret the request"}}
         try:
             r = router(text)
         except Exception as exc:
@@ -153,11 +153,11 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
 
     def clarify(state: OrchestratorState) -> dict:
         answer = interrupt({"kind": "clarify_intent",
-                            "question": "Non è chiaro cosa vuoi fare: una previsione su immagini o un training?",
+                            "question": "It is not clear what you want to do: a prediction on images or a training run?",
                             "reason": state["route"].get("reason"),
-                            "options": [{"value": "predict", "label": "Previsione su immagini"},
-                                        {"value": "train", "label": "Training dei modelli"},
-                                        {"value": "cancel", "label": "Annulla"}]})
+                            "options": [{"value": "predict", "label": "Prediction on images"},
+                                        {"value": "train", "label": "Train the models"},
+                                        {"value": "cancel", "label": "Cancel"}]})
         choice = answer.get("decision") if isinstance(answer, dict) else str(answer)
         if choice == "predict" and isinstance(answer, dict) and answer.get("image_paths"):
             return {"route": {**state["route"], "intent": "predict", "by": "human"},
@@ -168,11 +168,11 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
     def answer(state: OrchestratorState) -> dict:
         r = state.get("route", {})
         if r.get("intent") == "predict":
-            msg = "Per una previsione servono immagini: allegale (o indica i percorsi) e riprova."
+            msg = "A prediction needs images: attach them (or give their paths) and try again."
         elif r.get("intent") == "train" and trainer is None:
-            msg = "Il training agent non è configurato in questo orchestratore."
+            msg = "The training agent is not configured in this orchestrator."
         else:
-            msg = "Richiesta annullata."
+            msg = "Request cancelled."
         return {"report": msg, "messages": [AIMessage(content=msg, name="derma_orchestrator")]}
 
     def run_trainer(state: OrchestratorState) -> dict:
@@ -229,13 +229,13 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
                                 "issues": issues})
         # Pauses the graph; the value passed to Command(resume=...) comes back here.
         decision = interrupt({"kind": "review_flags",
-                              "question": "Il reviewer ha segnalato criticità. "
-                                          "Accetti le previsioni, le rifiuti o aggiungi una nota?",
+                              "question": "The reviewer flagged issues. "
+                                          "Do you accept the predictions, reject them, or add a note?",
                               "flagged": flagged, "report": state["report"]})
         if not isinstance(decision, dict):
             decision = {"decision": str(decision)}
         decision = {**decision, "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
-        note = f"\n\nDecisione umana: {decision.get('decision')}" + (
+        note = f"\n\nHuman decision: {decision.get('decision')}" + (
             f" — {decision['note']}" if decision.get("note") else "")
         return {"human_decision": decision, "report": state["report"] + note}
 

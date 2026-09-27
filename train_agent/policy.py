@@ -17,11 +17,11 @@ from __future__ import annotations
 from train_agent.space import DEFAULT_LR
 
 AUG_RATIONALE_DEFAULT = (
-    "Preset 'default': gruppo diedrale completo (flip orizzontale e verticale + rotazioni di 90°), "
-    "esattamente label-preserving perché le lesioni dermoscopiche non hanno un orientamento "
-    "canonico; RandomResizedCrop 0.8–1.0 per traslazione e scala senza bordi neri (che imiterebbero "
-    "la vignettatura del dermatoscopio); color jitter leggero con hue 0.02, perché il colore è un "
-    "segnale diagnostico. Nessun cutout: è un regolarizzatore e non c'è ancora overfitting misurato."
+    "Preset 'default': full dihedral group (horizontal and vertical flips + 90° rotations), "
+    "exactly label-preserving because dermoscopic lesions have no canonical orientation; "
+    "RandomResizedCrop 0.8–1.0 for translation and scale without black borders (which would mimic "
+    "dermoscope vignetting); light colour jitter with hue 0.02, because colour is a diagnostic "
+    "signal. No cutout: it is a regulariser and there is no measured overfitting yet."
 )
 MIN_GAIN = 0.005
 
@@ -36,15 +36,15 @@ def propose(plan: dict, trials: list[dict]) -> dict:
                         "epochs": plan["max_epochs_per_run"], "class_weight": "effective"},
             "augmentation": {"preset": "default", "overrides": {}},
             "augmentation_rationale": AUG_RATIONALE_DEFAULT,
-            "rationale": f"Primo run: {arch} con AdamW e pesi per classe 'effective' (Cui et al.), "
-                         "la leva più morbida contro lo sbilanciamento 67% nevi.",
+            "rationale": f"First run: {arch} with AdamW and 'effective' class weights (Cui et al.), "
+                         "the gentlest lever against the 67% nevi imbalance.",
             "addresses": [],
         }
 
     gains = [t["facts"].get("improvement_vs_campaign_best") for t in trials[-2:]]
     if len(trials) >= 3 and all(g is not None and g < MIN_GAIN for g in gains):
-        return {"action": "stop", "rationale": "Due segmenti consecutivi senza un guadagno reale "
-                                               f"(soglia {MIN_GAIN}): altri tentativi simili non aiutano."}
+        return {"action": "stop", "rationale": "Two consecutive segments without a real gain "
+                                               f"(threshold {MIN_GAIN}): more similar attempts will not help."}
 
     best = max(ok, key=lambda t: t["summary"]["best_score"] or -1)
     last = trials[-1]
@@ -52,44 +52,44 @@ def propose(plan: dict, trials: list[dict]) -> dict:
     base = best["proposal"]
     hp = dict(base["hparams"])
     common = {"arch": base["arch"], "augmentation": base["augmentation"],
-              "augmentation_rationale": "Augmentation invariata rispetto al run di partenza: "
-                                        "la diagnosi non indica un problema di generalizzazione "
-                                        "che l'augmentation possa correggere."}
+              "augmentation_rationale": "Augmentation unchanged from the starting run: "
+                                        "the diagnosis shows no generalisation problem "
+                                        "that augmentation could fix."}
 
     if "overfitting" in flags:
         hp["weight_decay"] = min(0.5, hp["weight_decay"] * 3)
         return {"action": "warm_restart", "parent_run": best["summary"]["run"], "hparams": hp, **common,
-                "rationale": f"Overfitting misurato (gap {last['facts']['gap_at_best']}→"
-                             f"{last['facts']['gap_at_end']}): riparto dal miglior checkpoint con "
+                "rationale": f"Measured overfitting (gap {last['facts']['gap_at_best']}→"
+                             f"{last['facts']['gap_at_end']}): restarting from the best checkpoint with "
                              "weight decay ×3.", "addresses": ["overfitting"]}
     if last["facts"].get("collapsed_classes") and hp.get("class_weight") == "effective":
         hp["class_weight"] = "inverse"
         return {"action": "new_run", "hparams": hp, **common,
-                "rationale": "Classi ancora a recall 0 ("
+                "rationale": "Classes still at recall 0 ("
                              + ", ".join(last["facts"]["collapsed_classes"])
-                             + "): passo ai pesi 'inverse', la correzione più forte.",
+                             + "): switching to 'inverse' weights, the strongest correction.",
                 "addresses": ["collapsed_classes"]}
     if "plateau" in flags:
         hp["lr"] = hp["lr"] * 0.3
         return {"action": "warm_restart", "parent_run": best["summary"]["run"], "hparams": hp, **common,
-                "rationale": f"Plateau: nessun miglioramento per {plan['patience']} epoche. Riparto dal "
-                             "miglior checkpoint con lr ×0.3 e optimizer nuovo.", "addresses": ["plateau"]}
+                "rationale": f"Plateau: no improvement for {plan['patience']} epochs. Restarting from the "
+                             "best checkpoint with lr ×0.3 and a fresh optimizer.", "addresses": ["plateau"]}
     return {"action": "warm_restart", "parent_run": last["summary"]["run"], "hparams": hp, **common,
-            "rationale": "Il segmento si è fermato per budget mentre migliorava ancora: continuo dallo "
-                         "stesso checkpoint con lo stesso lr.", "addresses": ["still_improving"]}
+            "rationale": "The segment stopped on budget while still improving: continuing from the "
+                         "same checkpoint with the same lr.", "addresses": ["still_improving"]}
 
 
 def analyse(facts: dict) -> dict:
     flags = facts.get("flags", [])
-    parts = [f"Stop: {facts.get('trigger')}. Miglior {facts.get('selection_metric')} "
-             f"{facts.get('score')} all'epoca {facts.get('best_epoch')}/{facts.get('epochs_completed')}."]
+    parts = [f"Stop: {facts.get('trigger')}. Best {facts.get('selection_metric')} "
+             f"{facts.get('score')} at epoch {facts.get('best_epoch')}/{facts.get('epochs_completed')}."]
     if "overfitting" in flags:
-        parts.append(f"Il gap train/val cresce ({facts['gap_at_best']}→{facts['gap_at_end']}).")
+        parts.append(f"The train/val gap grows ({facts['gap_at_best']}→{facts['gap_at_end']}).")
     if facts.get("collapsed_classes"):
-        parts.append("Classi a recall 0: " + ", ".join(facts["collapsed_classes"]) + ".")
-    rec = ("ridurre l'lr e ripartire dal checkpoint" if "plateau" in flags else
-           "aumentare la regolarizzazione" if "overfitting" in flags else
-           "continuare l'addestramento")
+        parts.append("Classes at recall 0: " + ", ".join(facts["collapsed_classes"]) + ".")
+    rec = ("lower the lr and restart from the checkpoint" if "plateau" in flags else
+           "increase regularisation" if "overfitting" in flags else
+           "keep training")
     return {"verdict": " ".join(parts), "overfitting": "overfitting" in flags,
             "underfitting": "underfitting" in flags, "plateau": "plateau" in flags,
             "likely_causes": [], "recommendation": rec, "knowledge_used": []}

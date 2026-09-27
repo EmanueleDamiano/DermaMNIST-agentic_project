@@ -150,7 +150,7 @@ How to decide:
 6. Confidence: 'high' | 'medium' | 'low'. Never above the starting level unless
    you explain why; lower it freely.
 
-Write rationales in the language of the request (Italian if unsure), 2-4
+Write rationales in the language of the request (English if unsure), 2-4
 sentences, quoting the numbers you were given. Cite knowledge chunks by their
 `chunk_id` in `knowledge_used` only if your rationale actually uses them.
 """

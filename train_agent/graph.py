@@ -197,8 +197,8 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         c = {k: v for k, v in (state.get("constraints") or {}).items() if v not in (None, "")}
         arch = c.get("arch") or DEFAULT_ARCH
         if arch not in ARCHITECTURES:
-            return {"error": f"architettura sconosciuta {arch!r}; scegli tra {sorted(ARCHITECTURES)}",
-                    "stop_reason": "vincoli non validi"}
+            return {"error": f"unknown architecture {arch!r}; choose from {sorted(ARCHITECTURES)}",
+                    "stop_reason": "invalid constraints"}
         p = {**DEFAULT_PLAN, **{k: c[k] for k in DEFAULT_PLAN if k in c},
              "arch": arch, "arch_fixed": bool(c.get("arch")), "llm": llm_name}
         if p["autonomy"] not in AUTONOMY:
@@ -208,39 +208,39 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         mem = {"ensemble": ensemble_state(), "past_runs": past_runs(12), "lessons": lessons(10)}
         weak = mem["ensemble"]["weak_classes"]
         p["goal"] = state.get("request") or (
-            "Migliorare la balanced accuracy di validazione dell'ensemble di previsione"
-            + (f", in particolare sulle classi deboli: {', '.join(weak)}" if weak else ""))
+            "Improve the validation balanced accuracy of the prediction ensemble"
+            + (f", especially on the weak classes: {', '.join(weak)}" if weak else ""))
         campaign = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
-        details = [f"obiettivo: {p['goal']}",
-                   f"architettura: {arch}" + (" (fissata dall'umano)" if p["arch_fixed"] else
-                                              " (default; l'agente può sceglierne un'altra)"),
-                   f"budget: {p['max_trials']} run, {p['max_minutes']} min, ≤{p['max_epochs_per_run']} "
-                   f"epoche per run, trigger dopo {p['patience']} epoche senza miglioramento",
-                   f"selezione su {p['select_on']}; autonomia {p['autonomy']}; LLM: {llm_name}",
-                   f"ensemble attuale: {len(mem['ensemble']['models'])} modelli, migliore bal.acc "
-                   f"{mem['ensemble']['best_val_balanced_acc']:.3f}; classi deboli: {', '.join(weak) or '—'}",
-                   f"memoria: {len(mem['past_runs'])} run passati, {len(mem['lessons'])} lezioni"]
+        details = [f"goal: {p['goal']}",
+                   f"architecture: {arch}" + (" (fixed by the human)" if p["arch_fixed"] else
+                                              " (default; the agent may choose another)"),
+                   f"budget: {p['max_trials']} runs, {p['max_minutes']} min, ≤{p['max_epochs_per_run']} "
+                   f"epochs per run, trigger after {p['patience']} epochs without improvement",
+                   f"selection on {p['select_on']}; autonomy {p['autonomy']}; LLM: {llm_name}",
+                   f"current ensemble: {len(mem['ensemble']['models'])} models, best bal.acc "
+                   f"{mem['ensemble']['best_val_balanced_acc']:.3f}; weak classes: {', '.join(weak) or '—'}",
+                   f"memory: {len(mem['past_runs'])} past runs, {len(mem['lessons'])} lessons"]
         return {"plan": p, "memory": mem, "campaign_id": campaign, "seconds_spent": 0.0,
                 "attempts": 0, "rejections": 0, "error": "",
-                "events": [_ev("plan", f"Piano della campagna {campaign}", details)]}
+                "events": [_ev("plan", f"Plan of campaign {campaign}", details)]}
 
     def approve_plan(state: TrainState) -> dict:
         p = state["plan"]
         if (state.get("constraints") or {}).get("auto_approve_plan"):
             return {"approval": {"decision": "approve", "auto": True},
-                    "events": [_ev("approve_plan", "Piano approvato in automatico (auto_approve_plan)")]}
+                    "events": [_ev("approve_plan", "Plan approved automatically (auto_approve_plan)")]}
         answer = interrupt({
             "kind": "approve_plan", "agent": AGENT_NAME,
-            "question": "Approvi il piano di training? Puoi modificare budget, architettura e autonomia.",
+            "question": "Do you approve the training plan? You can edit budget, architecture and autonomy.",
             "plan": {k: p[k] for k in p if k not in ("seed", "num_workers")},
             "ensemble": state["memory"]["ensemble"],
             "editable": sorted(EDITABLE),
-            "options": [{"value": "approve", "label": "Approva"}, {"value": "reject", "label": "Annulla"}],
+            "options": [{"value": "approve", "label": "Approve"}, {"value": "reject", "label": "Cancel"}],
         })
         answer = answer if isinstance(answer, dict) else {"decision": str(answer)}
         if answer.get("decision") not in ("approve", "approved", "accepted"):
-            return {"approval": answer, "stop_reason": "piano non approvato",
-                    "events": [_ev("approve_plan", "Piano rifiutato dall'umano", [answer.get("note", "")])]}
+            return {"approval": answer, "stop_reason": "plan not approved",
+                    "events": [_ev("approve_plan", "Plan rejected by the human", [answer.get("note", "")])]}
         edits = {k: v for k, v in (answer.get("edits") or {}).items() if k in EDITABLE}
         new = dict(p)
         for k, v in edits.items():
@@ -261,7 +261,7 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
                 except (TypeError, ValueError):
                     pass
         return {"plan": new, "approval": answer, "human_feedback": answer.get("note", ""),
-                "events": [_ev("approve_plan", "Piano approvato" + (f" con modifiche {edits}" if edits else ""),
+                "events": [_ev("approve_plan", "Plan approved" + (f" with edits {edits}" if edits else ""),
                                [answer.get("note", "")] if answer.get("note") else [])]}
 
     # --- propose / validate / review ------------------------------------------------
@@ -313,16 +313,16 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         prop["hparams"]["epochs"] = min(asked or p["max_epochs_per_run"], p["max_epochs_per_run"])
         if not trials and not p["arch_fixed"] and "arch" not in raw:
             prop["arch"] = p["arch"]
-        msg = {"stop": "Propone di fermarsi", "new_run": f"Propone un nuovo run {prop['arch']}",
-               "warm_restart": f"Propone un warm restart da {prop.get('parent_run')}"}[prop["action"]
+        msg = {"stop": "Proposes to stop", "new_run": f"Proposes a new {prop['arch']} run",
+               "warm_restart": f"Proposes a warm restart from {prop.get('parent_run')}"}[prop["action"]
                if prop["action"] in ("stop", "new_run", "warm_restart") else "new_run"]
-        details = [f"da: {source}", f"motivazione: {prop['rationale']}"]
+        details = [f"from: {source}", f"rationale: {prop['rationale']}"]
         if prop["action"] != "stop":
-            details += [f"iperparametri: {prop['hparams']}",
+            details += [f"hyperparameters: {prop['hparams']}",
                         f"augmentation: {prop['augmentation']}",
-                        f"perché questa augmentation: {prop['augmentation_rationale']}"]
+                        f"why this augmentation: {prop['augmentation_rationale']}"]
         if err:
-            details.append(f"errore LLM: {err}")
+            details.append(f"LLM error: {err}")
         return {"proposal": prop, "proposer_input": payload, "kb_context": kb_ctx,
                 "attempts": state.get("attempts", 0) + 1,
                 "events": [_ev("propose", msg, details, level)]}
@@ -332,11 +332,11 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         errors, warnings = validate_proposal(prop, state["plan"], _runs_by_name(trials))
         if prop["action"] == "stop":
             return {"proposal_errors": [], "proposal_warnings": [],
-                    "events": [_ev("validate", "Proposta di stop: nessun run da validare")]}
+                    "events": [_ev("validate", "Stop proposal: no run to validate")]}
         return {"proposal_errors": errors, "proposal_warnings": warnings,
-                "events": [_ev("validate", "Proposta valida" if not errors else
-                               f"Proposta non valida ({len(errors)} errori): torna al proposer",
-                               errors + [f"avviso: {w}" for w in warnings], "warn" if errors else "")]}
+                "events": [_ev("validate", "Valid proposal" if not errors else
+                               f"Invalid proposal ({len(errors)} errors): back to the proposer",
+                               errors + [f"warning: {w}" for w in warnings], "warn" if errors else "")]}
 
     def review_node(state: TrainState) -> dict:
         prop, trials = state["proposal"], state.get("trials", [])
@@ -348,14 +348,14 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
                      for w in state.get("proposal_warnings", [])]
         needs, reasons = gate(prop, ref, state["plan"]["autonomy"], first=not trials, findings=findings)
         changes = diff_configs(prop, ref)
-        details = [f"[{f['severity']}] {f['description']}" for f in findings] or ["nessun rilievo"]
-        details.append("modifiche rispetto al riferimento: " + (", ".join(changes) or "—"))
-        details += [f"serve un umano: {r}" for r in reasons]
+        details = [f"[{f['severity']}] {f['description']}" for f in findings] or ["no findings"]
+        details.append("changes from the reference: " + (", ".join(changes) or "—"))
+        details += [f"needs a human: {r}" for r in reasons]
         return {"findings": findings, "gate": {"needs_human": needs, "reasons": reasons,
                                                "changes": {k: v for k, v in changes.items()}},
                 "events": [_ev("review_proposal",
-                               ("Serve l'approvazione umana" if needs else "Approvata in automatico")
-                               + f" (autonomia {state['plan']['autonomy']})", details,
+                               ("Needs human approval" if needs else "Approved automatically")
+                               + f" (autonomy {state['plan']['autonomy']})", details,
                                "warn" if any(f["severity"] != "info" for f in findings) else "")]}
 
     def approve_proposal(state: TrainState) -> dict:
@@ -366,29 +366,29 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
             aug = prop["augmentation"]
         answer = interrupt({
             "kind": "approve_proposal", "agent": AGENT_NAME,
-            "question": "Il training agent propone il prossimo run. Approvi?",
+            "question": "The training agent proposes the next run. Do you approve?",
             "proposal": {k: prop[k] for k in ("action", "arch", "parent_run", "hparams", "rationale",
                                               "augmentation_rationale", "addresses", "expected_effect",
                                               "knowledge_used")},
             "augmentation_resolved": aug,
             "changes": state["gate"]["changes"], "why_human": state["gate"]["reasons"],
             "findings": state.get("findings", []),
-            "options": [{"value": "approve", "label": "Approva"},
-                        {"value": "reject", "label": "Chiedi un'altra proposta"},
-                        {"value": "stop", "label": "Ferma la campagna"}],
+            "options": [{"value": "approve", "label": "Approve"},
+                        {"value": "reject", "label": "Ask for another proposal"},
+                        {"value": "stop", "label": "Stop the campaign"}],
         })
         answer = answer if isinstance(answer, dict) else {"decision": str(answer)}
         d = answer.get("decision", "")
         if d in ("approve", "approved", "accepted", "accepted_with_note"):
             return {"approval": answer, "human_feedback": "",
-                    "events": [_ev("approve_proposal", "Proposta approvata dall'umano",
+                    "events": [_ev("approve_proposal", "Proposal approved by the human",
                                    [answer.get("note", "")] if answer.get("note") else [])]}
         if d == "stop":
-            return {"approval": answer, "stop_reason": "fermata dall'umano",
-                    "events": [_ev("approve_proposal", "Campagna fermata dall'umano")]}
+            return {"approval": answer, "stop_reason": "stopped by the human",
+                    "events": [_ev("approve_proposal", "Campaign stopped by the human")]}
         return {"approval": answer, "rejections": state.get("rejections", 0) + 1, "attempts": 0,
-                "human_feedback": answer.get("note") or "L'umano ha rifiutato la proposta: proponi altro.",
-                "events": [_ev("approve_proposal", "Proposta rifiutata: il proposer riceve il feedback",
+                "human_feedback": answer.get("note") or "The human rejected the proposal: propose something else.",
+                "events": [_ev("approve_proposal", "Proposal rejected: the proposer gets the feedback",
                                [answer.get("note", "")])]}
 
     # --- train / analyse / decide ----------------------------------------------------
@@ -410,7 +410,7 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
             if writer:
                 writer({"type": "epoch", "agent": AGENT_NAME, "campaign": state["campaign_id"], **row})
 
-        started = f"Addestra {run_name} (≤{prop['hparams']['epochs']} epoche, budget {share / 60:.1f} min)"
+        started = f"Trains {run_name} (≤{prop['hparams']['epochs']} epochs, budget {share / 60:.1f} min)"
         try:
             summary = run_segment(prop, p, campaign_dir, run_name, max(share, MIN_SEGMENT_SECONDS),
                                   init_from=init_from, on_epoch=on_epoch)
@@ -421,14 +421,14 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         spent = state.get("seconds_spent", 0.0) + float(summary.get("seconds") or 0.0)
         if summary["status"] == "error":
             return {"last_summary": summary, "seconds_spent": spent,
-                    "events": [_ev("train", f"{run_name}: errore", [summary.get("error", "")], "error")]}
+                    "events": [_ev("train", f"{run_name}: error", [summary.get("error", "")], "error")]}
         return {"last_summary": summary, "seconds_spent": spent, "events": [_ev(
-            "train", f"{started}: {summary['stop_reason']} dopo {summary['epochs_completed']} epoche, "
-                     f"{summary['selection_metric']} {summary['best_score']:.4f} all'epoca {summary['best_epoch']}",
-            [f"recall per classe: {summary['per_class_recall']}",
-             f"classi a recall 0: {', '.join(summary['collapsed_classes']) or '—'}",
-             f"durata {summary['seconds']:.0f} s ({summary['mean_epoch_seconds']:.0f} s/epoca)",
-             f"cartella: {summary['dir']}"])]}
+            "train", f"{started}: {summary['stop_reason']} after {summary['epochs_completed']} epochs, "
+                     f"{summary['selection_metric']} {summary['best_score']:.4f} at epoch {summary['best_epoch']}",
+            [f"per-class recall: {summary['per_class_recall']}",
+             f"classes at recall 0: {', '.join(summary['collapsed_classes']) or '—'}",
+             f"duration {summary['seconds']:.0f} s ({summary['mean_epoch_seconds']:.0f} s/epoch)",
+             f"folder: {summary['dir']}"])]}
 
     def analyse(state: TrainState) -> dict:
         s, prop, trials = state["last_summary"], state["proposal"], state.get("trials", [])
@@ -443,7 +443,7 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
                    "knowledge": [{k: c[k] for k in ("chunk_id", "title", "citation", "text")} for c in kb_ctx]}
         level = ""
         if s["status"] == "error":
-            diag = {"verdict": f"Il run è fallito: {s.get('error', '')[:300]}", "recommendation": "correggere e riprovare"}
+            diag = {"verdict": f"The run failed: {s.get('error', '')[:300]}", "recommendation": "fix and retry"}
         elif roles is not None:
             try:
                 diag = roles.analyse(payload)
@@ -467,8 +467,8 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
                    "rationale": prop["rationale"]})
         return {"trials": [trial], "analyst_input": payload, "kb_context": kb_ctx, "attempts": 0,
                 "events": [_ev("analyse", diag.get("verdict", ""),
-                               [f"flag calcolati: {', '.join(facts.get('flags', [])) or '—'}",
-                                f"raccomandazione: {diag.get('recommendation', '')}"]
+                               [f"computed flags: {', '.join(facts.get('flags', [])) or '—'}",
+                                f"recommendation: {diag.get('recommendation', '')}"]
                                + [f"[{f['severity']}] {f['description']}" for f in dfind], level)]}
 
     def decide(state: TrainState) -> dict:
@@ -481,16 +481,16 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
             errors_in_row += 1
         reason = ""
         if errors_in_row >= 2:
-            reason = "due run consecutivi falliti"
+            reason = "two consecutive runs failed"
         elif len(trials) >= p["max_trials"]:
-            reason = f"raggiunto il numero massimo di run ({p['max_trials']})"
+            reason = f"maximum number of runs reached ({p['max_trials']})"
         elif p["max_minutes"] * 60 - state.get("seconds_spent", 0.0) < MIN_SEGMENT_SECONDS:
-            reason = "budget di tempo esaurito"
+            reason = "time budget exhausted"
         elif p.get("target_score") is not None and scores and max(scores) >= p["target_score"]:
-            reason = f"obiettivo raggiunto ({max(scores):.4f} ≥ {p['target_score']})"
+            reason = f"target reached ({max(scores):.4f} ≥ {p['target_score']})"
         return {"stop_reason": reason, "events": [_ev(
             "decide", f"Stop: {reason}" if reason else
-            f"Continua: {len(trials)}/{p['max_trials']} run, "
+            f"Continue: {len(trials)}/{p['max_trials']} runs, "
             f"{state.get('seconds_spent', 0) / 60:.1f}/{p['max_minutes']} min")]}
 
     # --- evaluation and promotion -----------------------------------------------------
@@ -499,38 +499,38 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
               and t["summary"].get("checkpoint") and t["summary"].get("best_score") is not None]
         if not ok:
             return {"candidate": {}, "evaluation": {},
-                    "events": [_ev("evaluate", "Nessun candidato da valutare")]}
+                    "events": [_ev("evaluate", "No candidate to evaluate")]}
         best = max(ok, key=lambda t: t["summary"]["best_score"])["summary"]
         try:
             ev = evaluate_candidate(best)
         except Exception as exc:
             return {"candidate": best, "evaluation": {"error": str(exc)},
-                    "events": [_ev("evaluate", f"Valutazione fallita: {exc}", level="error")]}
+                    "events": [_ev("evaluate", f"Evaluation failed: {exc}", level="error")]}
         return {"candidate": best, "evaluation": ev, "events": [_ev(
             "evaluate",
-            f"Candidato {best['run']}: ensemble {ev['ensemble_now']['balanced_acc']:.4f} → "
+            f"Candidate {best['run']}: ensemble {ev['ensemble_now']['balanced_acc']:.4f} → "
             f"{ev['ensemble_with_candidate']['balanced_acc']:.4f} ({ev['delta_balanced_acc']:+.4f}) "
-            + ("— migliora" if ev["improves"] else "— non migliora abbastanza"),
-            [f"da solo: {ev['candidate_alone']['balanced_acc']:.4f}",
-             "variazioni di recall: " + ", ".join(f"{c} {d:+.3f}" for c, d in ev["recall_changes"].items() if d),
+            + ("— improves" if ev["improves"] else "— does not improve enough"),
+            [f"alone: {ev['candidate_alone']['balanced_acc']:.4f}",
+             "recall changes: " + ", ".join(f"{c} {d:+.3f}" for c, d in ev["recall_changes"].items() if d),
              ev["caveat"]])]}
 
     def approve_promotion(state: TrainState) -> dict:
         cand, ev = state["candidate"], state["evaluation"]
         answer = interrupt({
             "kind": "approve_promotion", "agent": AGENT_NAME,
-            "question": ("Il candidato migliora l'ensemble sulla validazione: lo promuovo?" if ev.get("improves")
-                         else "Il candidato NON migliora l'ensemble in modo significativo. Promuoverlo comunque?"),
+            "question": ("The candidate improves the ensemble on validation: shall I promote it?" if ev.get("improves")
+                         else "The candidate does NOT improve the ensemble significantly. Promote it anyway?"),
             "candidate": {k: cand.get(k) for k in ("run", "arch", "hparams", "best_score", "selection_metric",
                                                    "val_at_best", "per_class_recall", "dir")},
-            "evaluation": ev, "recommendation": "promuovere" if ev.get("improves") else "non promuovere",
-            "options": [{"value": "approve", "label": "Promuovi nell'ensemble"},
-                        {"value": "reject", "label": "Non promuovere"}],
+            "evaluation": ev, "recommendation": "promote" if ev.get("improves") else "do not promote",
+            "options": [{"value": "approve", "label": "Promote into the ensemble"},
+                        {"value": "reject", "label": "Do not promote"}],
         })
         answer = answer if isinstance(answer, dict) else {"decision": str(answer)}
         ok = answer.get("decision") in ("approve", "approved", "accepted", "accepted_with_note")
         return {"approval": answer, "events": [_ev("approve_promotion",
-                                                   "Promozione approvata" if ok else "Promozione rifiutata",
+                                                   "Promotion approved" if ok else "Promotion rejected",
                                                    [answer.get("note", "")] if answer.get("note") else [])]}
 
     def promote_node(state: TrainState) -> dict:
@@ -538,10 +538,10 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
             entry = promote(state["candidate"], state["evaluation"], state["campaign_id"], state["approval"])
         except Exception as exc:
             return {"promotion": {"error": str(exc)},
-                    "events": [_ev("promote", f"Promozione fallita: {exc}", level="error")]}
+                    "events": [_ev("promote", f"Promotion failed: {exc}", level="error")]}
         return {"promotion": entry, "events": [_ev(
-            "promote", f"Promosso come models_promoted/{entry['name']}: vota dalla prossima previsione",
-            [f"sha256 {entry['sha256'][:16]}…", f"sorgente {entry['source_run']} (non toccata)"])]}
+            "promote", f"Promoted as models_promoted/{entry['name']}: it votes from the next prediction",
+            [f"sha256 {entry['sha256'][:16]}…", f"source {entry['source_run']} (untouched)"])]}
 
     def finish(state: TrainState) -> dict:
         report = _report(state)
@@ -555,7 +555,7 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
             (campaign_dir / "campaign.json").write_text(json.dumps(record, indent=1, ensure_ascii=False,
                                                                    default=str))
         return {"report": report, "messages": [AIMessage(content=report, name=AGENT_NAME)],
-                "events": [_ev("finish", "Campagna chiusa: " + (state.get("stop_reason") or "fine"))]}
+                "events": [_ev("finish", "Campaign closed: " + (state.get("stop_reason") or "done"))]}
 
     # --- routing ----------------------------------------------------------------------
     def after_plan(state):
@@ -594,8 +594,8 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
         return "promote" if ok else "finish"
 
     def give_up(state):
-        return {"stop_reason": f"{MAX_ATTEMPTS} proposte non valide consecutive",
-                "events": [_ev("validate", "Troppe proposte non valide: la campagna si ferma", level="error")]}
+        return {"stop_reason": f"{MAX_ATTEMPTS} consecutive invalid proposals",
+                "events": [_ev("validate", "Too many invalid proposals: the campaign stops", level="error")]}
 
     g = StateGraph(TrainState)
     for name, fn in [("plan", plan), ("approve_plan", approve_plan), ("propose", propose),
@@ -624,27 +624,27 @@ def build_trainer_graph(roles=None, kb_path: Optional[Path] = KB_PATH, checkpoin
 
 def _report(state: dict) -> str:
     p = state.get("plan") or {}
-    lines = [f"Campagna di training {state.get('campaign_id', '')}",
-             f"Obiettivo: {p.get('goal', state.get('request', ''))}",
-             f"Chiusura: {state.get('stop_reason') or state.get('error') or 'fine'}", ""]
+    lines = [f"Training campaign {state.get('campaign_id', '')}",
+             f"Goal: {p.get('goal', state.get('request', ''))}",
+             f"Closed: {state.get('stop_reason') or state.get('error') or 'done'}", ""]
     for t in state.get("trials", []):
         s, pr = t["summary"], t["proposal"]
         score = f"{s['best_score']:.4f}" if s.get("best_score") is not None else "—"
         lines.append(f"• {s['run']} ({pr['action']}, {pr['arch']}, lr {pr['hparams']['lr']:.2g}, "
                      f"class_weight {pr['hparams']['class_weight']}, aug '{pr['augmentation']['preset']}'): "
                      f"{s.get('selection_metric', '')} {score} — {s.get('stop_reason', s.get('error', ''))}")
-        lines.append(f"  perché: {pr['rationale']}")
+        lines.append(f"  why: {pr['rationale']}")
         if t.get("diagnosis", {}).get("verdict"):
-            lines.append(f"  diagnosi: {t['diagnosis']['verdict']}")
+            lines.append(f"  diagnosis: {t['diagnosis']['verdict']}")
     ev, cand = state.get("evaluation") or {}, state.get("candidate") or {}
     if "ensemble_now" in ev:
-        lines += ["", f"Candidato {cand.get('run')}: ensemble di validazione "
+        lines += ["", f"Candidate {cand.get('run')}: validation ensemble "
                       f"{ev['ensemble_now']['balanced_acc']:.4f} → {ev['ensemble_with_candidate']['balanced_acc']:.4f} "
                       f"({ev['delta_balanced_acc']:+.4f})."]
     promo = state.get("promotion") or {}
     if promo.get("name"):
-        lines.append(f"Promosso come models_promoted/{promo['name']}: il Testing agent lo usa da subito.")
+        lines.append(f"Promoted as models_promoted/{promo['name']}: the Testing agent uses it from now on.")
     elif cand:
-        lines.append("Nessun modello promosso: l'ensemble di previsione è invariato.")
-    lines += ["", "Test split mai usato: la valutazione finale resta un passo manuale (evaluate_test.py)."]
+        lines.append("No model promoted: the prediction ensemble is unchanged.")
+    lines += ["", "Test split never used: the final evaluation remains a manual step (evaluate_test.py)."]
     return "\n".join(lines)

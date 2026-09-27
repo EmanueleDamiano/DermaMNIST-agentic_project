@@ -75,7 +75,7 @@ Rules:
 - Cite knowledge passages by chunk_id in `knowledge_used` only if you used them.
 - The test split does not exist for you.
 - If a human left feedback, follow it.
-Write rationales in the language of the request (Italian if none), concretely,
+Write rationales in the language of the request (English if none), concretely,
 quoting the numbers you were given.
 """
 
@@ -86,7 +86,7 @@ authoritative, do not contradict them - the thinned curve, and knowledge-base
 passages. Explain what happened and why, in 2-4 sentences, and give ONE
 concrete recommendation. You do not choose hyper-parameters. Cite passages by
 chunk_id in `knowledge_used` only if you used them. Write in the language of
-the request (Italian if none).
+the request (English if none).
 """
 
 
