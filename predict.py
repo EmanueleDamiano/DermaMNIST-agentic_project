@@ -37,9 +37,10 @@ from pathlib import Path
 import torch
 from PIL import Image
 
-from fpvit.dataset import DATA_FLAG, build_transforms
+from fpvit.dataset import DATA_FLAG, eval_transform_for, model_input
 from fpvit.engine import resolve_device
 from fpvit.model import build_fpvit
+from fpvit.zoo import build_from_config
 
 from medmnist import INFO
 
@@ -96,15 +97,7 @@ def main():
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
         cfg = ckpt["config"]
-        model = build_fpvit(
-            num_classes=num_classes,
-            in_channels=in_channels,
-            input_size=28,
-            embed_dim=cfg["embed_dim"],
-            depth=cfg["depth"],
-            num_heads=cfg["num_heads"],
-            use_resnet_head=not cfg.get("no_resnet_head", False),
-        ).to(device)
+        model = build_from_config(cfg, num_classes=num_classes, in_channels=in_channels).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
         provenance = f"checkpoint={args.checkpoint} (epoch {ckpt.get('epoch')})"
         trained = True
@@ -120,9 +113,13 @@ def main():
         ).to(device)
         provenance = "RANDOM (untrained) weights"
         trained = False
+        cfg = {}
 
     model.eval()
-    transform = build_transforms(train=False)
+    # Resizes any input to the model's own size (28, or 224 for a DermaMNIST-C
+    # model) and applies the normalisation it was trained with.
+    transform = eval_transform_for(cfg)
+    img_size, norm = model_input(cfg)
 
     images = collect_images(Path(args.image))
     ground_truth = load_ground_truth(Path(args.labels)) if args.labels else {}
@@ -130,6 +127,7 @@ def main():
     print(f"Device:  {device}")
     print(f"Weights: {provenance}")
     print(f"Params:  {sum(p.numel() for p in model.parameters()):,}")
+    print(f"Input:   {img_size}x{img_size}, norm={norm}")
     if not trained:
         print("\n!! No checkpoint given: the predictions below are meaningless.")
         print("!! This run only verifies that the pipeline executes end to end.")

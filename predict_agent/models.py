@@ -22,7 +22,7 @@ from typing import Iterable
 import torch
 from PIL import Image
 
-from fpvit.dataset import build_transforms
+from fpvit.dataset import eval_transform_for, model_input
 from fpvit.engine import resolve_device
 from fpvit.zoo import build_from_config
 
@@ -152,7 +152,6 @@ class ModelZoo:
         self.device = resolve_device(device)
         self.min_balanced_acc = min_balanced_acc
         self.exclude = set(exclude)
-        self._transform = build_transforms(train=False)
         self._models: dict[str, torch.nn.Module] = {}
         self.cards: dict[str, ModelCard] = {}
         self.skipped: list[dict] = []
@@ -201,21 +200,22 @@ class ModelZoo:
     def predict(self, images: list[Path]) -> dict[str, list[list[float]]]:
         """{model_name: [probabilities per image, in input order]}.
 
-        Same eval-time preprocessing as `predict.py` and validation
-        (ToTensor + Normalize). The models are built for 28x28 inputs, so any
-        other size is resized here first; a large photo downsampled to 28x28 is
-        out of distribution for DermaMNIST-trained models, and the report says so.
+        Same eval-time preprocessing as `predict.py` and validation, per model:
+        each image is resized (bicubic) to the input size that model was
+        trained at - 28, or 224 for a DermaMNIST-C/E model - and normalised
+        with its statistics. One batch per distinct (size, normalisation), so
+        the usual all-28 ensemble still preprocesses once. A large photo
+        downsampled to 28x28 is out of distribution for DermaMNIST-trained
+        models, and the report says so.
         """
-        batch = []
-        for path in images:
-            img = Image.open(path).convert("RGB")
-            if img.size != (28, 28):
-                img = img.resize((28, 28), Image.BICUBIC)
-            batch.append(self._transform(img))
-        x = torch.stack(batch).to(self.device)
-
+        pil = [Image.open(path).convert("RGB") for path in images]
+        batches: dict[tuple, torch.Tensor] = {}
         out = {}
-        for name in self.cards:
-            probs = torch.softmax(self._load(name)(x), dim=1).cpu()
+        for name, card in self.cards.items():
+            key = model_input(card.config)
+            if key not in batches:
+                tf = eval_transform_for(card.config)
+                batches[key] = torch.stack([tf(img) for img in pil]).to(self.device)
+            probs = torch.softmax(self._load(name)(batches[key]), dim=1).cpu()
             out[name] = [[float(p) for p in row] for row in probs]
         return out

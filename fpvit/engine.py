@@ -144,12 +144,25 @@ def compute_class_weights(class_counts, scheme: str = "none",
 
 def train_one_epoch(model: nn.Module, loader, optimizer, device, epoch: int,
                      log_every: int = 50, progress: bool = True,
-                     class_weights: Optional[torch.Tensor] = None) -> TrainMetrics:
+                     class_weights: Optional[torch.Tensor] = None,
+                     scaler: Optional["torch.amp.GradScaler"] = None,
+                     grad_clip: float = 0.0,
+                     label_smoothing: float = 0.0) -> TrainMetrics:
+    """One pass over the train split.
+
+    scaler: a CUDA GradScaler turns on mixed precision (fp16 autocast), which
+        roughly halves memory and time at 224 px on a T4. None = full fp32.
+    grad_clip: max global gradient norm (0 = off); measured on the unscaled
+        gradients when mixed precision is on.
+    label_smoothing: CrossEntropyLoss's label_smoothing, training side only.
+    """
     model.train()
     # Weighted only on the training side - see the module docstring.
     criterion = nn.CrossEntropyLoss(
-        weight=None if class_weights is None else class_weights.to(device)
+        weight=None if class_weights is None else class_weights.to(device),
+        label_smoothing=label_smoothing,
     )
+    amp = scaler is not None
     running_loss = 0.0
     n_batches = 0
     n_correct = 0
@@ -158,13 +171,25 @@ def train_one_epoch(model: nn.Module, loader, optimizer, device, epoch: int,
     pbar = tqdm(loader, desc=f"train epoch {epoch}", leave=False) if progress else None
     for images, labels in (pbar if pbar is not None else loader):
         labels = _flatten_labels(labels)
-        images, labels = images.to(device), labels.to(device)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
 
-        optimizer.zero_grad()
-        logits = model(images)
-        loss = criterion(logits, labels)
-        loss.backward()
-        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=amp):
+            logits = model(images)
+            loss = criterion(logits.float(), labels)
+        if amp:
+            scaler.scale(loss).backward()
+            if grad_clip > 0:
+                scaler.unscale_(optimizer)
+                nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            if grad_clip > 0:
+                nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+            optimizer.step()
 
         running_loss += loss.item()
         n_batches += 1

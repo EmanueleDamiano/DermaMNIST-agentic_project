@@ -328,6 +328,63 @@ schemi diversi e utilizzabile come `--select-on loss`. La `train_loss`, invece,
 non è confrontabile tra schemi diversi — quei run vanno confrontati sulle
 metriche di validazione.
 
+## 224 px e dataset senza leakage (DermaMNIST-C / -E)
+
+Lo split ufficiale di DermaMNIST è fatto per immagine: la stessa lesione di
+HAM10000 compare in train, val e test (Abhishek, Jain & Hamarneh, in
+`legacy_first_agent/docs/references/`). `--dataset` sceglie tra:
+
+| `--dataset` | split | train / val / test | risoluzioni |
+| --- | --- | --- | --- |
+| `dermamnist` (default) | ufficiale, per immagine | 7007 / 1003 / 2005 | 28 (64/128/224 via MedMNIST+, stesso split) |
+| `dermamnist_c` | corretto: le immagini di lesioni presenti nel train sono spostate nel train | 8215 / 573 / 1227 | 28, 224 |
+| `dermamnist_e` | train = tutto HAM10000, val/test = ISIC 2018 | 10015 / 193 / 1511 | 28, 224 |
+
+C ed E sono scaricati da Zenodo al primo uso, con verifica MD5. A 224 px sono
+ridimensionati **direttamente dagli originali** (bicubica), non ingranditi dal
+28. Il protocollo previsto: train e selezione su C, test finale sul test di C
+e, come test esterno, sul test di E. Il contrario non vale: il train di E
+contiene tutte le immagini di val e test di C.
+
+**FPViT a 224.** Con una patch 1×1 la prima testa ViT vedrebbe 224² = 50.176
+token, quindi sopra i 64 px FPViT usa:
+
+- lo stem ImageNet (conv 7×7 stride 2 + max-pool): B1..B4 = 56, 28, 14, 7;
+- per ogni testa ViT, un token per blocco p×p (patch embedding convolutivo)
+  in modo che ognuna veda una griglia 14×14 = 196 token (p = 4, 2, 1);
+- con `--pretrained`, l'estrattore parte dai pesi ImageNet di ResNet-18 di
+  torchvision. La corrispondenza è uno a uno: le feature sono identiche a
+  quelle di torchvision (verificato). Sono pesi addestrati solo su ImageNet,
+  quindi niente dati dermatologici e niente leakage. In questo caso la
+  normalizzazione passa alle statistiche ImageNet.
+
+| Parametro | Default | Note |
+| --- | --- | --- |
+| `--dataset` | `dermamnist` | vedi tabella sopra |
+| `--img-size` | 28 | 28 o 224; le CNN restano solo a 28 |
+| `--stem` | `auto` | `small` fino a 64 px, `imagenet` sopra |
+| `--token-grid` | -1 (auto) | lato della griglia di token per testa; 0 = un token per posizione (il paper), auto = 0 con lo stem small, 14 con quello imagenet |
+| `--pretrained` | off | estrattore ImageNet; richiede lo stem imagenet |
+| `--norm` | `auto` | `imagenet` con `--pretrained`, altrimenti `dermamnist` |
+| `--backbone-lr-mult` | 1.0 | lr dell'estrattore = lr × mult (es. 0.1 con `--pretrained`) |
+| `--warmup-epochs` | 0 | warm-up lineare da 0.1×lr prima del coseno |
+| `--amp` | off | mixed precision fp16, solo CUDA |
+| `--grad-clip` | 0 | norma massima del gradiente (0 = off) |
+| `--label-smoothing` | 0 | solo sulla loss di training |
+
+Tutti i valori `auto` vengono risolti prima del run e salvati nella `config`
+del checkpoint. Checkpoint precedenti senza queste chiavi si ricaricano a 28
+px come prima. `predict.py`, `evaluate_test.py` e il `ModelZoo` del testing
+agent ridimensionano ogni immagine alla risoluzione del modello e applicano la
+sua normalizzazione (`fpvit.dataset.eval_transform_for`). `evaluate_test.py
+--dataset dermamnist_e` valuta un modello di C sul test esterno. Il gate di
+promozione del training agent accetta per ora solo modelli a 28 px dello split
+ufficiale, perché confronta tutti sulla stessa validation.
+
+Il notebook `colab/fpvit_224_dermamnist_c.ipynb` esegue l'ablation da zero
+contro pre-addestrato (3 seed ciascuna) su GPU Colab, riprendibile dopo una
+disconnessione, con il test finale su C ed E alla fine.
+
 ## Collegamento al progetto AgenticDerma
 
 - **WP3 (Training)**: FPViT è un candidato aggiuntivo da confrontare, sotto
@@ -340,10 +397,10 @@ metriche di validazione.
   richieste (accuracy, macro-F1, balanced accuracy, macro AUROC one-vs-rest,
   precision/recall/F1 per classe, matrice di confusione); manca solo la
   calibrazione, da aggiungere quando si fissa la policy di selezione finale.
-- **WP2 (Data)**: `fpvit/dataset.py` usa per ora lo split ufficiale di
-  DermaMNIST senza l'audit di duplicati/leakage citato nella proposta
-  (Abhishek, Jain & Hamarneh) — da integrare prima di usare i risultati per
-  la selezione del modello finale.
+- **WP2 (Data)**: `fpvit/dataset.py` supporta oltre allo split ufficiale
+  DermaMNIST-C/E, le versioni corrette per lesione di Abhishek, Jain &
+  Hamarneh (vedi la sezione 224 px). Il training agent e il gate di promozione
+  usano ancora lo split ufficiale.
 - Il checkpoint e il file `experiment_record.json` prodotti da `train.py`
   forniscono la traccia richiesta dal registro degli esperimenti (D3.3):
   configurazione completa, seed, storia delle metriche per epoca, percorso

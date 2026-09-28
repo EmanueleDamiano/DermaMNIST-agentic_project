@@ -60,6 +60,7 @@ orchestrator/     routing + human-in-the-loop       train_agent/   training agen
 webapp/           platform (stdlib HTTP server, no build step)
 simple_agent/     first LangGraph agent; its build_llm is reused by the agents
 corpus.json       clinical knowledge base for the seven classes
+colab/            Colab notebook: FPViT at 224 px on the leakage-free DermaMNIST-C
 legacy_first_agent/   the project's first agent prototype, not used by the system
 test_samples/     one example image per class
 ```
@@ -70,7 +71,7 @@ Each package documents its design, the checks it runs and what was verified in i
 
 ## Limitations
 
-DermaMNIST images are 28×28 and the dataset has known duplicates and split leakage [2]. The classes are strongly imbalanced: melanocytic nevi account for about two thirds of the images, and dermatofibroma and vascular lesions for about 1% each. The current ensemble has a validation balanced accuracy of about 0.50. This is a research project, not a diagnostic tool: its outputs are not medical advice.
+DermaMNIST images are 28×28 and the dataset has known duplicates and split leakage [2]. `train.py --dataset dermamnist_c` trains on the lesion-level corrected release of [2], at 28 or 224 px (see `fpvit/README.md`); the agents still use the official split. The classes are strongly imbalanced: melanocytic nevi account for about two thirds of the images, and dermatofibroma and vascular lesions for about 1% each. The current ensemble has a validation balanced accuracy of about 0.50. This is a research project, not a diagnostic tool: its outputs are not medical advice.
 
 ## References
 

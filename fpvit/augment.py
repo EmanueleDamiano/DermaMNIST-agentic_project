@@ -68,6 +68,26 @@ DERMAMNIST_STD = (0.1409, 0.1523, 0.1699)
 # ops so a rotation never injects a black wedge.
 DERMAMNIST_FILL = tuple(int(round(c * 255)) for c in DERMAMNIST_MEAN)  # (195, 137, 143)
 
+# Input normalisation, chosen per model and stored in its config ("norm"):
+# a network that starts from ImageNet weights expects ImageNet statistics.
+NORMALIZATIONS = {
+    "dermamnist": (DERMAMNIST_MEAN, DERMAMNIST_STD),
+    "imagenet": ((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+}
+
+# The augmentation config is written for 28x28 (it predates larger inputs), so
+# pixel-valued fields - only cutout_size - are in 28-px units and scaled by
+# img_size / 28. The same config therefore occludes the same fraction of the
+# image at any resolution.
+BASE_SIZE = 28
+
+
+def _normalize(norm: str) -> transforms.Normalize:
+    if norm not in NORMALIZATIONS:
+        raise ValueError(f"unknown normalisation {norm!r}; choose from {sorted(NORMALIZATIONS)}")
+    mean, std = NORMALIZATIONS[norm]
+    return transforms.Normalize(mean=mean, std=std)
+
 # Pillow's rotate constants moved under Image.Transpose in 9.1.
 try:  # pragma: no cover - depends on the installed Pillow
     _ROTATIONS = (
@@ -267,7 +287,7 @@ class AugmentationConfig:
         return type(self).from_dict(merged)
 
     # -- description -----------------------------------------------------
-    def describe(self) -> list[str]:
+    def describe(self, img_size: int = BASE_SIZE) -> list[str]:
         """Human/agent-readable list of the ops this config actually applies."""
         lines: list[str] = []
         if self.rotate_90:
@@ -276,7 +296,7 @@ class AugmentationConfig:
             lines.append(f"RandomRotation(+/-{self.rotation_degrees} deg, fill={DERMAMNIST_FILL})")
         if self.random_resized_crop:
             lines.append(
-                f"RandomResizedCrop(28, scale=({self.rrc_scale_min}, {self.rrc_scale_max}), "
+                f"RandomResizedCrop({img_size}, scale=({self.rrc_scale_min}, {self.rrc_scale_max}), "
                 f"ratio=({self.rrc_ratio_min}, {self.rrc_ratio_max}))"
             )
         if self.horizontal_flip > 0:
@@ -291,7 +311,7 @@ class AugmentationConfig:
             )
         lines.append("ToTensor + Normalize")
         if self.cutout:
-            lines.append(f"Cutout(size={self.cutout_size}, p={self.cutout_p})")
+            lines.append(f"Cutout(size={_scaled_cutout(self.cutout_size, img_size)}, p={self.cutout_p})")
         if len(lines) == 1:
             lines.insert(0, "(no augmentation)")
         return lines
@@ -396,7 +416,8 @@ AUG_SEARCH_SPACE: dict[str, dict[str, Any]] = {
     },
     "cutout_size": {
         "type": "int", "low": 4, "high": 12, "default": 8,
-        "note": "8 on a 28x28 image occludes up to 8.2% of the pixels",
+        "note": "in 28-px units, scaled with the input size; 8 occludes up to 8.2% "
+                "of the pixels at any resolution",
     },
     "cutout_p": {
         "type": "float", "low": 0.0, "high": 1.0, "default": 0.5,
@@ -540,7 +561,12 @@ def resolve_augmentation(preset_name: str = "default",
 # --------------------------------------------------------------------------
 # Pipeline construction
 # --------------------------------------------------------------------------
-def build_train_transform(cfg: Optional[AugmentationConfig] = None):
+def _scaled_cutout(size: int, img_size: int) -> int:
+    return max(1, round(int(size) * img_size / BASE_SIZE))
+
+
+def build_train_transform(cfg: Optional[AugmentationConfig] = None,
+                          img_size: int = BASE_SIZE, norm: str = "dermamnist"):
     """Composes the train-time pipeline described by `cfg`.
 
     Order: exact rotation -> arbitrary rotation -> crop/scale -> flips ->
@@ -564,7 +590,7 @@ def build_train_transform(cfg: Optional[AugmentationConfig] = None):
 
     if cfg.random_resized_crop:
         ops.append(transforms.RandomResizedCrop(
-            28,
+            img_size,
             scale=(float(cfg.rrc_scale_min), float(cfg.rrc_scale_max)),
             ratio=(float(cfg.rrc_ratio_min), float(cfg.rrc_ratio_max)),
         ))
@@ -584,20 +610,26 @@ def build_train_transform(cfg: Optional[AugmentationConfig] = None):
         ))
 
     ops.append(transforms.ToTensor())
-    ops.append(transforms.Normalize(mean=DERMAMNIST_MEAN, std=DERMAMNIST_STD))
+    ops.append(_normalize(norm))
 
     if cfg.cutout:
-        ops.append(Cutout(size=int(cfg.cutout_size), p=float(cfg.cutout_p)))
+        ops.append(Cutout(size=_scaled_cutout(cfg.cutout_size, img_size), p=float(cfg.cutout_p)))
 
     return transforms.Compose(ops)
 
 
-def build_eval_transform():
+def build_eval_transform(img_size: Optional[int] = None, norm: str = "dermamnist"):
     """Deterministic pipeline for val/test and for single-image inference.
 
     Never augmented: the evaluation protocol must not depend on a random draw.
+    With `img_size`, any other input size is first resized to img_size x
+    img_size with bicubic interpolation, ignoring the aspect ratio - the same
+    resize that built the DermaMNIST(-C/E) .npz files from the originals. On
+    images already at that size the resize is a no-op.
     """
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=DERMAMNIST_MEAN, std=DERMAMNIST_STD),
-    ])
+    ops: list[Any] = []
+    if img_size is not None:
+        ops.append(transforms.Resize((img_size, img_size),
+                                     interpolation=transforms.InterpolationMode.BICUBIC))
+    ops += [transforms.ToTensor(), _normalize(norm)]
+    return transforms.Compose(ops)

@@ -5,6 +5,11 @@ Train FPViT on DermaMNIST.
 Example:
     python train.py --epochs 100 --batch-size 128 --lr 1e-3 --out runs/fpvit_run1
 
+    # 224 px on the leakage-free DermaMNIST-C, ImageNet-initialised extractor
+    python train.py --dataset dermamnist_c --img-size 224 --pretrained \
+        --optimizer adamw --lr 3e-4 --backbone-lr-mult 0.1 --warmup-epochs 3 \
+        --amp --batch-size 64 --out runs_224/fpvit_c224_pre_s42
+
 This script is written to fit the "Training Agent" contract described in the
 AgenticDerma project proposal (WP3): it takes a fixed data split, a fixed
 experiment policy (config below), trains with a stored random seed, and
@@ -49,6 +54,19 @@ baseline of 0.669 even for a model that has collapsed onto one class.
 imbalance; both are deviations from the paper's recipe, so they default to
 off and are recorded in the experiment record when used.
 
+Resolution and data. `--dataset dermamnist_c` / `dermamnist_e` train on the
+lesion-level leakage-free releases of Abhishek et al. (see fpvit/dataset.py),
+at `--img-size 28` or `224`. At 224 FPViT switches to the ImageNet stem and
+groups feature-map locations into a 14x14 token grid per ViT head
+(`--stem`, `--token-grid`); `--pretrained` then starts the ResNet-18
+extractor from ImageNet weights, with ImageNet input statistics (`--norm`).
+Every automatic choice is resolved before the run starts and stored in the
+config, so the checkpoint rebuilds with exactly the shape it was trained with.
+
+`--amp` (mixed precision, CUDA only), `--grad-clip`, `--label-smoothing`,
+`--warmup-epochs` and `--backbone-lr-mult` are the robustness knobs for the
+larger model; all default to off, i.e. to the original recipe.
+
 Augmentation is selected in one of three ways, which compose (later wins):
 
     --aug-preset none|dihedral|default|strong|paper
@@ -78,11 +96,12 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from fpvit.augment import PRESETS, parse_overrides, resolve_augmentation
-from fpvit.dataset import get_dermamnist_loaders
+from fpvit.augment import NORMALIZATIONS, PRESETS, parse_overrides, resolve_augmentation
+from fpvit.dataset import DATASETS, DEFAULT_DATASET, get_dermamnist_loaders
 from fpvit.engine import (compute_class_weights, evaluate, resolve_device,
                            train_one_epoch)
-from fpvit.zoo import ARCHITECTURES, DEFAULT_ARCH, build_model
+from fpvit.model import STEMS, load_imagenet_resnet18
+from fpvit.zoo import ARCHITECTURES, DEFAULT_ARCH, build_model, resolve_fpvit_shape
 
 
 # Flat, scalar-only columns for metrics.csv. Per-class arrays and the
@@ -302,6 +321,40 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-resnet-head", action="store_true",
                     help="drop the 4th (ResNet) head -> reproduces the paper's '3 heads' ablation")
 
+    # --- data and resolution ------------------------------------------------
+    p.add_argument("--dataset", choices=DATASETS, default=DEFAULT_DATASET,
+                    help="dermamnist = official split (per image, leaks lesions across splits); "
+                         "dermamnist_c / dermamnist_e = Abhishek et al.'s lesion-level corrected "
+                         "releases, downloaded from Zenodo (see fpvit/dataset.py)")
+    p.add_argument("--img-size", type=int, default=28,
+                    help="input size: 28 or 224 (the CNNs are 28 only)")
+    p.add_argument("--stem", choices=("auto",) + STEMS, default="auto",
+                    help="FPViT stem: small (3x3/s1) or imagenet (7x7/s2 + max-pool); "
+                         "auto = small up to 64 px, imagenet above")
+    p.add_argument("--token-grid", type=int, default=-1,
+                    help="side of the token grid of every FPViT ViT head; 0 = one token per "
+                         "feature-map location (the paper); -1 = auto (0 with the small "
+                         "stem, 14 with the imagenet stem)")
+    p.add_argument("--pretrained", action="store_true",
+                    help="start the FPViT ResNet-18 extractor from torchvision's ImageNet "
+                         "weights (needs the imagenet stem). ImageNet only: no leakage")
+    p.add_argument("--norm", choices=("auto",) + tuple(sorted(NORMALIZATIONS)), default="auto",
+                    help="input normalisation; auto = imagenet with --pretrained, else dermamnist")
+
+    # --- optimisation robustness (all off by default = the original recipe) ---
+    p.add_argument("--backbone-lr-mult", type=float, default=1.0,
+                    help="lr multiplier for the FPViT ResNet extractor, e.g. 0.1 with "
+                         "--pretrained so the ImageNet features are refined, not overwritten")
+    p.add_argument("--warmup-epochs", type=int, default=0,
+                    help="linear lr warm-up (from 0.1x) before the cosine decay")
+    p.add_argument("--amp", action="store_true",
+                    help="mixed precision (fp16 autocast + GradScaler); CUDA only, "
+                         "ignored with a warning elsewhere")
+    p.add_argument("--grad-clip", type=float, default=0.0,
+                    help="max global gradient norm (0 = off)")
+    p.add_argument("--label-smoothing", type=float, default=0.0,
+                    help="label smoothing of the training loss (0 = off)")
+
     # --- class imbalance (both are deviations from the paper's recipe) ------
     p.add_argument("--class-weight", choices=["none", "inverse", "effective"], default="none",
                     help="per-class weights in the TRAINING loss, from the train-split counts "
@@ -340,7 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--num-workers", type=int, default=4)
     p.add_argument("--data-root", type=str, default=None,
-                    help="folder containing dermamnist.npz if it should not be auto-downloaded")
+                    help="folder holding the dataset .npz (default ~/.medmnist); downloaded there "
+                         "if missing")
     p.add_argument("--out", type=str, default="runs/fpvit_dermamnist")
     p.add_argument("--index-file", type=str, default=None,
                     help="JSONL campaign index, one line appended per finished run "
@@ -387,7 +441,61 @@ def main():
             tee.close()
 
 
+def resolve_auto_args(args):
+    """Replaces every 'auto' value with the concrete choice, in place.
+
+    The config stored in the checkpoints is vars(args), so it must hold what
+    was actually built - not "auto", whose meaning could change later.
+    """
+    if args.arch == "fpvit":
+        stem, grid = resolve_fpvit_shape(args.img_size, None if args.stem == "auto" else args.stem,
+                                         None if args.token_grid < 0 else args.token_grid)
+        args.stem, args.token_grid = stem, grid or 0
+        if args.pretrained and stem != "imagenet":
+            raise ValueError("--pretrained needs the imagenet stem (use --img-size > 64 "
+                             "or --stem imagenet)")
+    else:
+        if args.pretrained:
+            raise ValueError("--pretrained is only implemented for --arch fpvit")
+        args.stem, args.token_grid = None, None
+    if args.norm == "auto":
+        args.norm = "imagenet" if args.pretrained else "dermamnist"
+    if args.warmup_epochs >= args.epochs:
+        raise ValueError("--warmup-epochs must be smaller than --epochs")
+
+
+def build_optimizer(model, args):
+    """Two parameter groups when --backbone-lr-mult != 1: the heads at --lr
+    (group 0, the lr that gets logged) and the FPViT extractor at lr * mult."""
+    backbone = getattr(model, "backbone", None)
+    if backbone is not None and args.backbone_lr_mult != 1.0:
+        backbone_ids = {id(q) for q in backbone.parameters()}
+        groups = [
+            {"params": [q for q in model.parameters() if id(q) not in backbone_ids], "lr": args.lr},
+            {"params": list(backbone.parameters()), "lr": args.lr * args.backbone_lr_mult},
+        ]
+    else:
+        groups = [{"params": list(model.parameters()), "lr": args.lr}]
+    if args.optimizer == "sgd":
+        optimizer = torch.optim.SGD(groups, lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
+    else:
+        optimizer = torch.optim.AdamW(groups, lr=args.lr, weight_decay=args.weight_decay)
+
+    if args.warmup_epochs > 0:
+        scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, [
+            torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1,
+                                              total_iters=args.warmup_epochs),
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
+                                                       T_max=args.epochs - args.warmup_epochs),
+        ], milestones=[args.warmup_epochs])
+    else:
+        # Unchanged from before warm-up existed, so older last_model.pt resume as they were.
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    return optimizer, scheduler
+
+
 def run(args, out_dir: Path):
+    resolve_auto_args(args)
     set_seed(args.seed)
     install_sigterm_handler()
     device = resolve_device(args.device)
@@ -397,6 +505,12 @@ def run(args, out_dir: Path):
     print(f"Run started: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Device: {device}")
     print(f"Output: {out_dir}")
+    print(f"Data:   {args.dataset} at {args.img_size}x{args.img_size}, norm={args.norm}")
+
+    use_amp = args.amp and device.type == "cuda"
+    if args.amp and not use_amp:
+        print(f"WARNING: --amp needs CUDA; training in fp32 on {device}.")
+    scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
     # One resolution path shared with programmatic callers, so a config an
     # agent builds in Python and one passed on the CLI behave identically.
@@ -406,7 +520,7 @@ def run(args, out_dir: Path):
     aug = resolve_augmentation(args.aug_preset, args.aug_config, overrides)
 
     print("Augmentation (train split only):")
-    for line in aug.describe():
+    for line in aug.describe(args.img_size):
         print(f"  - {line}")
     print()
 
@@ -416,6 +530,9 @@ def run(args, out_dir: Path):
         aug=aug,
         data_root=args.data_root,
         balanced_sampler=args.balanced_sampler,
+        dataset=args.dataset,
+        img_size=args.img_size,
+        norm=args.norm,
     )
 
     # Two ways to correct the same imbalance; applying both corrects it twice
@@ -442,8 +559,19 @@ def run(args, out_dir: Path):
         depth=args.depth,
         num_heads=args.num_heads,
         use_resnet_head=not args.no_resnet_head,
-    ).to(device)
-    print(f"Architecture: {args.arch} ({sum(p.numel() for p in model.parameters()):,} parameters)")
+        img_size=args.img_size,
+        stem=args.stem,
+        token_grid=args.token_grid,
+    )
+    if args.pretrained and not (args.resume or args.init_from):
+        # Before .to(device), and skipped when the weights are about to be
+        # replaced anyway (a resume or a warm start brings its own).
+        loaded = load_imagenet_resnet18(model)
+        print(f"Extractor initialised from ImageNet ResNet-18 ({len(loaded)} tensors)")
+    model = model.to(device)
+    print(f"Architecture: {args.arch} ({sum(p.numel() for p in model.parameters()):,} parameters)"
+          + (f", stem={args.stem}, token grid={args.token_grid or 'per location'}"
+             if args.arch == "fpvit" else ""))
 
     if args.init_from:
         # Weights only: the optimizer, scheduler and history start fresh, which is
@@ -460,20 +588,18 @@ def run(args, out_dir: Path):
         if src_arch != args.arch:
             raise ValueError(f"--init-from checkpoint is {src_arch!r}, but --arch is {args.arch!r}")
         if args.arch == "fpvit":
-            shape = {k: src_cfg.get(k) for k in ("embed_dim", "depth", "num_heads", "no_resnet_head")}
+            shape = {k: src_cfg.get(k) for k in ("embed_dim", "depth", "num_heads", "no_resnet_head",
+                                                 "img_size", "stem", "token_grid")}
             wanted = {"embed_dim": args.embed_dim, "depth": args.depth,
-                      "num_heads": args.num_heads, "no_resnet_head": args.no_resnet_head}
+                      "num_heads": args.num_heads, "no_resnet_head": args.no_resnet_head,
+                      "img_size": args.img_size, "stem": args.stem, "token_grid": args.token_grid}
             if any(shape[k] is not None and shape[k] != wanted[k] for k in wanted):
                 raise ValueError(f"--init-from checkpoint has FPViT shape {shape}, run asks for {wanted}")
         model.load_state_dict(state["model_state_dict"])
         print(f"Warm start from: {src} (epoch {state.get('epoch')}, "
               f"{state.get('selection_metric')}={state.get('selection_score')})\n")
 
-    if args.optimizer == "sgd":
-        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
-    else:
-        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    optimizer, scheduler = build_optimizer(model, args)
 
     best_ckpt_path = out_dir / "best_model.pt"
     last_ckpt_path = out_dir / "last_model.pt"
@@ -499,6 +625,8 @@ def run(args, out_dir: Path):
         optimizer.load_state_dict(state["optimizer_state_dict"])
         scheduler.load_state_dict(state["scheduler_state_dict"])
         restore_rng_state(state.get("rng_state"))
+        if scaler is not None and state.get("scaler_state_dict"):
+            scaler.load_state_dict(state["scaler_state_dict"])
         history = state.get("history", [])
         start_epoch = state["epoch"] + 1
 
@@ -626,7 +754,9 @@ def run(args, out_dir: Path):
 
             train_metrics = train_one_epoch(model, bundle.train_loader, optimizer, device,
                                              epoch, progress=show_progress,
-                                             class_weights=class_weights)
+                                             class_weights=class_weights, scaler=scaler,
+                                             grad_clip=args.grad_clip,
+                                             label_smoothing=args.label_smoothing)
             val_metrics = evaluate(model, bundle.val_loader, device, bundle.num_classes,
                                     progress=show_progress)
             scheduler.step()
@@ -700,6 +830,7 @@ def run(args, out_dir: Path):
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "scheduler_state_dict": scheduler.state_dict(),
+                "scaler_state_dict": None if scaler is None else scaler.state_dict(),
                 "rng_state": rng_state(),
                 "epoch": epoch,
                 "selection_metric": args.select_on,
@@ -773,6 +904,17 @@ def run(args, out_dir: Path):
                 "class_weight": args.class_weight,
                 "cb_beta": args.cb_beta,
                 "balanced_sampler": args.balanced_sampler,
+                "dataset": args.dataset,
+                "img_size": args.img_size,
+                "stem": args.stem,
+                "token_grid": args.token_grid,
+                "pretrained": args.pretrained,
+                "norm": args.norm,
+                "backbone_lr_mult": args.backbone_lr_mult,
+                "warmup_epochs": args.warmup_epochs,
+                "amp": args.amp,
+                "grad_clip": args.grad_clip,
+                "label_smoothing": args.label_smoothing,
             },
             "augmentation": aug.to_dict(),
             # Metrics at the SELECTED epoch. Per-class recall is included

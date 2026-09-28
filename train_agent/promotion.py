@@ -31,7 +31,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from fpvit.dataset import build_transforms
+from fpvit.dataset import build_transforms, model_input
 from fpvit.engine import resolve_device
 from fpvit.zoo import build_from_config
 from predict_agent.models import CHANCE_BALANCED_ACC, CLASS_NAMES, PROJECT_ROOT, ModelZoo
@@ -61,7 +61,14 @@ def val_probs(ckpt_path: str, device) -> np.ndarray:
     key = ("probs", ckpt_path)
     if key not in _VAL_CACHE:
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-        model = build_from_config(ckpt["config"]).to(device)
+        cfg = ckpt["config"]
+        if (cfg.get("dataset") or "dermamnist") != "dermamnist" or model_input(cfg) != (28, "dermamnist"):
+            # The gate scores every member on the official 28 px val split; a
+            # DermaMNIST-C/E or 224 px model has a different validation set and
+            # input, so its vote weight and this comparison would not be fair.
+            raise ValueError(f"{ckpt_path}: promotion supports only 28 px models of the official "
+                             f"split (this one: {cfg.get('dataset')}, {model_input(cfg)})")
+        model = build_from_config(cfg).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
         x, _ = load_val()
