@@ -133,11 +133,48 @@ def dataset_file(dataset: str, img_size: int, data_root: str | None = None,
     if not path.exists():
         if not download:
             raise FileNotFoundError(f"{path} not found")
-        from torchvision.datasets.utils import download_url
         root.mkdir(parents=True, exist_ok=True)
-        download_url(f"https://zenodo.org/records/{_ZENODO_RECORD}/files/{name}?download=1",
-                     str(root), filename=name, md5=md5)
+        _download(f"https://zenodo.org/records/{_ZENODO_RECORD}/files/{name}?download=1", path, md5)
     return path
+
+
+def _ssl_context():
+    """Verified TLS. The python.org macOS build ships without CA certificates
+    ("Install Certificates.command"); certifi's bundle fills the gap when present."""
+    import ssl
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def _download(url: str, path: Path, md5: str) -> None:
+    """Streams `url` to `path`, checking the MD5 before the file appears.
+
+    Written to `<path>.part` and renamed only once the checksum matches, so an
+    interrupted or corrupted download never leaves a file that looks complete.
+    """
+    import hashlib
+    import os
+    import urllib.request
+
+    from tqdm import tqdm
+
+    tmp = path.with_name(path.name + ".part")
+    digest = hashlib.md5()
+    context = _ssl_context() if url.startswith("https:") else None
+    with urllib.request.urlopen(url, timeout=60, context=context) as response, open(tmp, "wb") as f:
+        total = int(response.headers.get("Content-Length") or 0) or None
+        with tqdm(total=total, unit="B", unit_scale=True, desc=path.name) as bar:
+            for block in iter(lambda: response.read(1 << 20), b""):
+                f.write(block)
+                digest.update(block)
+                bar.update(len(block))
+    if digest.hexdigest() != md5:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"{path.name}: MD5 {digest.hexdigest()} != expected {md5}; download discarded")
+    os.replace(tmp, path)
 
 
 class NpzSplit(Dataset):

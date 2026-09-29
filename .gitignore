@@ -16,6 +16,7 @@ runs_agent/
 runs_train/
 runs_predict/
 runs_224/
+trained_models_224/
 models_promoted/
 
 # ...except ONE model, so that a fresh clone can run the whole system:
