@@ -12,6 +12,7 @@ The system follows one rule throughout: **numbers come from code, language comes
 | **Testing agent** | `predict_agent/` | Runs every local model on one or more images. Combines them with a skill-weighted soft vote and a precision-weighted hard vote, and looks at the most confident model. Reasons over deterministic memory (past executions of the same image) and stochastic memory (TF-IDF retrieval over the clinical knowledge base), then returns the final prediction. |
 | **Reviewer agent** | `review_agent/` | Reads the tester's full trace. Checks it against the knowledge base with an independent retrieval and against deterministic checks (claims about the image, melanoma/nevus margin, overrides, overstated confidence, invented citations), and identifies the model that actually drove the decision. It escalates contradictions to the human; otherwise it summarises the reasoning for the user. |
 | **Training agent** | `train_agent/` | Plans a training campaign and proposes each run: architecture, hyperparameters, class weighting, and augmentation justified for dermoscopy. It runs `train.py`, and when a run plateaus it diagnoses the curves and proposes the next step (new run, warm restart, stop). An autonomy gate decides which proposals need a human. The candidate enters the prediction ensemble only if it improves it on validation **and** a human approves. |
+| **Models agent** | `models_agent/` | Answers questions about the available models and their data: characteristics, validation accuracy, macro-F1, AUC and ROC curves, why a run is excluded, what the validation set contains, how the vote and the promotion work. The facts and every chart are computed in code from validation data only (the test split is never read); an LLM writes the answer, and a check in code rejects any figure or run name that is not in the facts. Read-only. |
 | **Platform** | `webapp/` | Local web UI. It shows the agent graph live, the communication trace, training curves per epoch, and a single human-decision dialog for every kind of interrupt. It also has explainability windows for the full LLM context and the knowledge base. |
 
 ```mermaid
@@ -21,6 +22,7 @@ graph TD
   R -- issues --> H{{human}}
   O -- training request --> TR[Training agent]
   TR -- plan / proposals / promotion --> H
+  O -- question about the models --> M[Models agent]
   O -- unclear --> H
   TR -. promoted models .-> T
 ```
@@ -57,6 +59,7 @@ train.py          training entry point used by hand and by the training agent
 predict.py        single-model prediction; evaluate_test.py: manual test-split evaluation
 predict_agent/    testing agent        review_agent/  reviewer agent
 orchestrator/     routing + human-in-the-loop       train_agent/   training agent + training KB
+models_agent/     models agent: model facts, validation metrics, ROC curves
 webapp/           platform (stdlib HTTP server, no build step)
 simple_agent/     first LangGraph agent; its build_llm is reused by the agents
 corpus.json       clinical knowledge base for the seven classes

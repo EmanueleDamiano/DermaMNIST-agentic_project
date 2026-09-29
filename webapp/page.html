@@ -279,7 +279,36 @@
     .graph-canvas.mode-train [data-agent="tester"],.graph-canvas.mode-train [data-agent="reviewer"]{display:none}
     .graph-canvas.mode-predict [data-agent="trainer"],.graph-canvas.mode-idle [data-agent="trainer"]{display:none}
     .graph-canvas.mode-train .agent-row{grid-template-columns:1.6fr .8fr}
+    .graph-canvas.mode-models [data-agent="tester"],.graph-canvas.mode-models [data-agent="reviewer"],.graph-canvas.mode-models [data-agent="trainer"]{display:none}
+    .graph-canvas:not(.mode-models) [data-agent="inspector"]{display:none}
+    .graph-canvas.mode-text [data-agent="tester"],.graph-canvas.mode-text [data-agent="reviewer"],.graph-canvas.mode-text [data-agent="trainer"]{display:none}
+    .graph-canvas.mode-models .agent-row{grid-template-columns:1.6fr .8fr}
     .steps.two-col{grid-template-columns:1fr 1fr;column-gap:10px}
+
+    /* ---- models view ---- */
+    .mscroll{overflow-x:auto;max-width:100%}
+    .mtable{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums}
+    .mtable td:first-child{overflow-wrap:anywhere;min-width:150px}
+    .mtable td:not(:first-child){white-space:nowrap}
+    .mtable th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+    .mtable td{padding:6px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+    .mtable td.num,.mtable th.num{text-align:right}
+    .mtable tr.ens td{font-weight:650;background:var(--canvas)}
+    .mtable tr.excl td{color:var(--muted)}
+    .mtable td small{display:block;color:var(--muted);font-size:10px;line-height:1.4;margin-top:2px;max-width:300px;white-space:normal}
+    .swatch{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+    .swatch.dash{background:repeating-linear-gradient(90deg,#8a8d93 0 4px,transparent 4px 7px)}
+    .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--ink-soft);margin:6px 0 10px}
+    .roc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+    .roc-panel b{display:block;font-size:11.5px;margin-bottom:2px}
+    .roc-panel small{color:var(--muted);font-size:10px}
+    .roc-panel svg{width:100%;height:auto;margin-top:4px}
+    .roc-panel .axis{stroke:#d9d7d1;stroke-width:1}
+    .roc-panel .chance{stroke:#c8c6bf;stroke-width:1;stroke-dasharray:3 3}
+    .roc-panel .ax-label{font-size:8px;fill:var(--muted)}
+    .cm{display:grid;gap:2px;font-size:10px;font-variant-numeric:tabular-nums;max-width:430px}
+    .cm div{padding:5px 2px;text-align:center;border-radius:3px}
+    .cm .h{color:var(--muted);font-size:9.5px;background:none}
     .runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
     .run-card{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--canvas)}
     .run-card.current{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface)}
@@ -334,7 +363,7 @@
       .gnode.hub{width:100%}
       .agent-row{grid-template-columns:1fr;gap:14px}
       .graph-edges{display:none}
-      .graph-canvas.mode-train .agent-row{grid-template-columns:1fr}
+      .graph-canvas.mode-train .agent-row,.graph-canvas.mode-models .agent-row{grid-template-columns:1fr}
       .steps.two-col,.grid2{grid-template-columns:1fr}
     }
   </style>
@@ -418,7 +447,7 @@
         <div class="card-head"><strong>Process graph</strong><span id="graphState">Idle</span></div>
         <div class="graph-canvas" id="graphCanvas">
           <svg class="graph-edges" id="graphEdges">
-            <path data-edge="tester"/><path data-edge="reviewer"/><path data-edge="trainer"/><path data-edge="human"/>
+            <path data-edge="tester"/><path data-edge="reviewer"/><path data-edge="trainer"/><path data-edge="inspector"/><path data-edge="human"/>
             <path class="seq" data-seq="tester-reviewer"/><path class="seq" data-seq="reviewer-human"/><path class="seq" data-seq="trainer-human"/>
           </svg>
           <div class="hub-row">
@@ -439,6 +468,10 @@
             <div class="gnode" data-agent="trainer">
               <div class="gh"><div class="gi">TR</div><div><strong>Training agent</strong><span class="gd">Proposes, trains, analyses · training KB</span></div><em>idle</em></div>
               <ul class="steps two-col" id="trainerSteps"></ul>
+            </div>
+            <div class="gnode" data-agent="inspector">
+              <div class="gh"><div class="gi">MA</div><div><strong>Models agent</strong><span class="gd">Model facts, validation metrics, ROC · read-only</span></div><em>idle</em></div>
+              <ul class="steps" id="inspectorSteps"></ul>
             </div>
             <div class="gnode" data-agent="human">
               <div class="gh"><div class="gi">HU</div><div><strong>Human</strong><span class="gd">Approves, rejects, clarifies</span></div><em>idle</em></div>
@@ -538,8 +571,9 @@
 const $=s=>document.querySelector(s),messages=$('#messages'),promptBox=$('#prompt'),sendButton=$('#send'),emptyState=$('#emptyState');
 const TESTER_STEPS=[['load_inputs','Reads the images'],['recall_memory','Deterministic memory'],['run_models','Local models'],['vote','Weighted vote'],['retrieve_knowledge','Knowledge base'],['reason','Reasoning'],['write_log','Writes the log']];
 const REVIEWER_STEPS=[['gather','Checks + independent KB'],['review','Consistency check'],['render','Report for the user']];
+const MODELS_STEPS=[['collect_facts','Model facts (validation)'],['explain','Answer (LLM)'],['check_claims','Check against the facts']];
 const STATE_LABEL={idle:'idle',active:'working',done:'done',error:'error',waiting:'waiting for you',skipped:'not needed'};
-const ACTOR_MARK={'Orchestrator':['OR','orchestrator'],'Testing agent':['TA','tester'],'Reviewer agent':['RA','reviewer'],'Training agent':['TR','tester'],'Human':['HU','human']};
+const ACTOR_MARK={'Orchestrator':['OR','orchestrator'],'Testing agent':['TA','tester'],'Reviewer agent':['RA','reviewer'],'Training agent':['TR','tester'],'Models agent':['MA','tester'],'Human':['HU','human']};
 const TRAINER_STEPS=[['plan','Plan + memory'],['approve_plan','Plan approval 👤'],['propose','Proposal (LLM + KB)'],['validate','Validation'],['review_proposal','Reviewer + autonomy'],['approve_proposal','Run approval 👤'],['train','Training (plateau trigger)'],['analyse','Analysis (LLM + KB)'],['decide','Continue or stop?'],['evaluate','Ensemble ± candidate'],['approve_promotion','Promotion 👤'],['promote','Copy to models_promoted'],['finish','Report']];
 const AUTONOMY_LABEL={supervised:'supervised',guarded:'guarded',autonomous:'autonomous'};
 let lastJob=(()=>{try{return localStorage.getItem('dermaLastJob')}catch(e){return null}})(),selected=[],busy=false,currentJob=null,lastHealth=null,settings=loadSettings(),humanShownFor=null,lastJobState=null;
@@ -553,7 +587,7 @@ function loadSettings(){try{return JSON.parse(localStorage.getItem('dermaSetting
 function storeSettings(){try{localStorage.setItem('dermaSettings',JSON.stringify(settings))}catch(e){}}
 
 /* ---------- explainability windows ---------- */
-const INSPECTABLE={'tester.reason':'Testing agent reasoning','reviewer.review':'Reviewer agent check'};
+const INSPECTABLE={'tester.reason':'Testing agent reasoning','reviewer.review':'Reviewer agent check','inspector.explain':'Models agent answer'};
 function openContext(step){
   if(!lastJob){$('#stage').textContent='Start a process: the context of "'+INSPECTABLE[step]+'" becomes visible as soon as the step starts.';return}
   window.open('/context?job='+encodeURIComponent(lastJob)+'&step='+step,'dermaContext');
@@ -563,7 +597,7 @@ function openKB(){window.open('/kb','dermaKB')}
 /* ---------- graph ---------- */
 function buildSteps(){
   const fill=(box,agent,list)=>list.forEach(([id,label])=>{const li=el('li','step');li.dataset.step=agent+'.'+id;li.append(el('i'),document.createTextNode(label));box.appendChild(li)});
-  fill($('#testerSteps'),'tester',TESTER_STEPS);fill($('#reviewerSteps'),'reviewer',REVIEWER_STEPS);fill($('#trainerSteps'),'trainer',TRAINER_STEPS);
+  fill($('#testerSteps'),'tester',TESTER_STEPS);fill($('#reviewerSteps'),'reviewer',REVIEWER_STEPS);fill($('#trainerSteps'),'trainer',TRAINER_STEPS);fill($('#inspectorSteps'),'inspector',MODELS_STEPS);
   Object.keys(INSPECTABLE).forEach(key=>{const li=document.querySelector('.step[data-step="'+key+'"]');li.classList.add('inspect');li.title='Open the full context the agent is considering';li.onclick=()=>openContext(key)});
 }
 function drawEdges(){
@@ -584,7 +618,7 @@ function drawEdges(){
   });
 }
 function renderGraph(graph={},steps={},kind){
-  const canvas=$('#graphCanvas');['mode-idle','mode-predict','mode-train'].forEach(k=>canvas.classList.remove(k));canvas.classList.add('mode-'+(kind||'idle'));
+  const canvas=$('#graphCanvas');['mode-idle','mode-predict','mode-train','mode-models','mode-text'].forEach(k=>canvas.classList.remove(k));canvas.classList.add('mode-'+(kind||'idle'));
   document.querySelectorAll('.gnode[data-agent]').forEach(node=>{
     const st=graph[node.dataset.agent]||'idle';
     ['active','done','error','waiting','skipped'].forEach(k=>node.classList.toggle(k,st===k));
@@ -612,7 +646,7 @@ function renderActivity(items=[]){
       const d=el('details');d.dataset.key=item.time+item.actor+item.node;if(open.has(d.dataset.key))d.open=true;
       d.append(el('summary',null,'details ('+item.details.length+' lines)'),el('pre',null,item.details.join('\n')));body.appendChild(d);
     }
-    const key={Testing:'tester',Reviewer:'reviewer'}[(item.actor||'').split(' ')[0]]+'.'+item.node;
+    const key={Testing:'tester',Reviewer:'reviewer',Models:'inspector'}[(item.actor||'').split(' ')[0]]+'.'+item.node;
     if(INSPECTABLE[key]){const a=el('button','ctx-link','Open the full context ↗');a.onclick=()=>openContext(key);body.appendChild(a)}
     body.appendChild(el('time',null,item.time||''));ev.appendChild(body);box.appendChild(ev);
   });
@@ -626,12 +660,12 @@ function addUser(text,thumbs){
   body.append(el('div','bubble',text),el('div','stamp','You · '+clock()));
   messages.appendChild(row);toggleEmpty();scrollDown();
 }
-function addAssistant(blocks,withProcess,withContext=true){
+function addAssistant(blocks,withProcess,withContext=true,ctxStep='tester.reason'){
   const row=el('div','message'),body=el('div','message-body'),bubble=el('div','bubble');
   blocks.filter(b=>b&&b.text).forEach(b=>{const blk=el('div','block');if(b.title)blk.appendChild(el('h4',null,b.title));blk.appendChild(document.createTextNode(b.text));bubble.appendChild(blk)});
   row.append(el('div','avatar','DA'),body);body.append(bubble,el('div','stamp','DermaAgent · '+clock()));
   if(withProcess){const b=el('button','open-process','See the agents\' process');b.onclick=openProcess;body.appendChild(b);
-    if(withContext){const c=el('button','open-process','Reasoning context ↗');c.style.marginLeft='6px';c.onclick=()=>openContext('tester.reason');body.appendChild(c)}}
+    if(withContext){const c=el('button','open-process','Reasoning context ↗');c.style.marginLeft='6px';c.onclick=()=>openContext(ctxStep);body.appendChild(c)}}
   messages.appendChild(row);toggleEmpty();scrollDown();
 }
 function renderResult(job,img){
@@ -716,6 +750,7 @@ function finishTrain(state){
   }
 }
 function finishJob(state){
+  if(state.kind==='models'||state.result?.kind==='models'){finishModels(state);return}
   if(state.kind==='train'){finishTrain(state);return}
   const r=state.result||{};
   if(state.status==='error'&&!r.images?.length){addAssistant([{text:'The process stopped. '+(state.error||r.error||'')}],true);return}
@@ -728,7 +763,94 @@ function finishJob(state){
     {title:'Agents',text:'Testing agent: '+(r.tester==='deterministic'?'weighted vote':r.tester)+' · Reviewer: '+(r.reviewer==='deterministic'?'automatic checks':r.reviewer)},
   ],true);
   (r.images||[]).forEach(img=>renderResult(state.id,img));
-  addAssistant([{text:'Research prototype trained on 28×28 DermaMNIST images: not a diagnosis, and not a substitute for a dermatologist\'s examination.'}]);
+  addAssistant([{text:'Research prototype trained on low-resolution DermaMNIST images (28×28 and 224×224): not a diagnosis, and not a substitute for a dermatologist\'s examination.'}]);
+}
+
+/* ---------- models view ---------- */
+// Categorical slots in fixed order; a model keeps its colour by NAME (sorted), never by rank.
+const SERIES=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948'];
+const ENSEMBLE_INK='#1a1c1f',EXCLUDED_INK='#8a8d93';
+function fmt(x,n=3){return x===null||x===undefined?'—':(+x).toFixed(n)}
+function svgEl(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,v));return e}
+function modelStyles(r){
+  const members=(r.models||[]).filter(m=>m.role==='ensemble member').map(m=>m.name).sort(),st={};
+  members.forEach((n,i)=>st[n]={color:SERIES[i%SERIES.length],width:1.8,dash:''});
+  (r.models||[]).filter(m=>m.role==='excluded').forEach(m=>st[m.name]={color:EXCLUDED_INK,width:1.2,dash:'4 3'});
+  st.ensemble={color:ENSEMBLE_INK,width:2.4,dash:''};return st;
+}
+function rocPanel(cls,support,curves,styles,aucs){
+  const W=150,H=150,P=18,x=v=>P+v*(W-P-6),y=v=>H-P-v*(H-P-6);
+  const box=el('div','roc-panel');box.append(el('b',null,cls),el('small',null,'n = '+support+' in validation'));
+  const svg=svgEl('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'ROC curves for '+cls});
+  svg.append(svgEl('line',{x1:x(0),y1:y(0),x2:x(1),y2:y(0),class:'axis'}),svgEl('line',{x1:x(0),y1:y(0),x2:x(0),y2:y(1),class:'axis'}),svgEl('line',{x1:x(0),y1:y(0),x2:x(1),y2:y(1),class:'chance'}));
+  const lab=(t,a)=>{const e=svgEl('text',{class:'ax-label',...a});e.textContent=t;svg.appendChild(e)};
+  lab('FPR',{x:W-6,y:H-5,'text-anchor':'end'});lab('TPR',{x:2,y:10});
+  // excluded first, then members, the ensemble last (on top)
+  const order=Object.keys(curves).sort((a,b)=>(styles[a]?.color===EXCLUDED_INK?0:a==='ensemble'?2:1)-(styles[b]?.color===EXCLUDED_INK?0:b==='ensemble'?2:1));
+  order.forEach(name=>{const pts=curves[name],s=styles[name];if(!pts||!s)return;
+    const path=svgEl('path',{d:pts.map((p,i)=>(i?'L':'M')+x(p[0]).toFixed(1)+','+y(p[1]).toFixed(1)).join(' '),fill:'none',stroke:s.color,'stroke-width':s.width,'stroke-dasharray':s.dash,'stroke-linejoin':'round'});
+    const t=svgEl('title');t.textContent=name+' · AUC '+fmt(aucs[name]);path.appendChild(t);svg.appendChild(path)});
+  box.appendChild(svg);return box;
+}
+function confusion(cm,classes){
+  const box=el('div','cm');box.style.gridTemplateColumns='44px repeat('+classes.length+',1fr)';
+  box.appendChild(el('div','h','true ↓ / pred →'));classes.forEach(c=>box.appendChild(el('div','h',c)));
+  const ramp=v=>{const stops=[[252,252,251],[205,226,251],[57,135,229],[13,54,107]],t=Math.min(1,Math.max(0,v))*3,i=Math.min(2,Math.floor(t)),f=t-i,a=stops[i],b=stops[i+1];return 'rgb('+a.map((c,k)=>Math.round(c+(b[k]-c)*f)).join(',')+')'};
+  cm.forEach((row,i)=>{const tot=row.reduce((a,b)=>a+b,0)||1;box.appendChild(el('div','h',classes[i]));
+    row.forEach((n,j)=>{const v=n/tot,c=el('div',null,Math.round(v*100)+'%');c.style.background=ramp(v);c.style.color=v>0.55?'#fff':'var(--ink)';c.title=classes[i]+' → '+classes[j]+': '+n+' of '+tot+' images';box.appendChild(c)})});
+  return box;
+}
+function finishModels(state){
+  const r=state.result||{},claims=r.claims||{};
+  if(state.status==='error'&&!(r.models||[]).length){addAssistant([{text:'The process stopped. '+(state.error||r.error||'')}],true);return}
+  const who=r.answered_by==='deterministic'?'summary computed in code (no LLM)':'answered by '+r.answered_by;
+  const check={supported:'every figure checked against the facts ✓',rejected:'LLM answer rejected: it cited figures not in the facts',not_checked:''}[claims.verdict]||'';
+  addAssistant([{title:'Models',text:r.report||''},{text:[who,check].filter(Boolean).join(' · ')}],true,true,'inspector.explain');
+  const vs=r.validation_set||{},ch=r.charts||{},classes=ch.classes||[],styles=modelStyles(r);
+  const card=el('section','result-card'),head=el('div','result-head'),left=el('div');
+  left.append(el('h2',null,'Available models'),el('span','stamp','validation set: '+(vs.name||'')+' · '+(vs.images||'?')+' images · no test data'));
+  const badges=el('div','badges');badges.appendChild(el('span','badge good',((r.models||[]).filter(m=>m.role==='ensemble member').length)+' in the ensemble'));
+  const nx=(r.models||[]).filter(m=>m.role==='excluded').length;if(nx)badges.appendChild(el('span','badge',nx+' excluded'));
+  head.append(left,badges);card.appendChild(head);
+  // --- table
+  const sec=el('div','section');sec.appendChild(el('strong',null,'Characteristics and validation metrics'));
+  const wrap=el('div','mscroll'),t=el('table','mtable'),h=el('tr');
+  [['Model',''],['Input',''],['Trained on',''],['ImageNet',''],['Epochs',''],['Bal. acc','num'],['Macro-F1','num'],['Macro-AUC','num'],['Accuracy','num'],['Vote weight','num']].forEach(([x,c])=>h.appendChild(el('th',c,x)));t.appendChild(h);
+  const row=(name,m,v,cls,sub)=>{const tr=el('tr',cls),c0=el('td'),s=styles[name];
+    const sw=el('span','swatch'+(s&&s.dash?' dash':''));if(s&&!s.dash)sw.style.background=s.color;c0.append(sw,document.createTextNode(name));if(sub)c0.appendChild(el('small',null,sub));tr.appendChild(c0);
+    [m.input_size_px?m.input_size_px+' px':'—',m.trained_on||'—',m.pretrained_imagenet===undefined?'—':(m.pretrained_imagenet?'yes':'no'),m.epochs_run!==undefined?(m.epochs_run??'?')+' · best '+(m.selected_epoch??'?'):'—'].forEach(x=>tr.appendChild(el('td',null,x)));
+    [v.balanced_accuracy,v.macro_f1,v.macro_auc,v.accuracy,m.vote_weight].forEach(x=>tr.appendChild(el('td','num',fmt(x))));t.appendChild(tr)};
+  const members=(r.models||[]).filter(m=>m.role==='ensemble member').sort((a,b)=>(b.vote_weight||0)-(a.vote_weight||0));
+  members.forEach(m=>row(m.name,m,m.c_val||{},'',m.architecture+(m.promotion?' · promoted '+String(m.promotion.promoted_at||'').slice(0,10):'')));
+  if(r.ensemble)row('ensemble',{},r.ensemble.c_val||{},'ens','soft vote of the members, weighted by skill (optimistic: weights fitted on the same images)');
+  (r.models||[]).filter(m=>m.role==='excluded').forEach(m=>row(m.name,m,m.c_val||{},'excl','excluded: '+(m.excluded_because||'')));
+  wrap.appendChild(t);sec.appendChild(wrap);card.appendChild(sec);
+  // --- per-class recall
+  if(classes.length){
+    const s2=el('div','section');s2.appendChild(el('strong',null,'Recall per class (validation)'));
+    const w2=el('div','mscroll'),t2=el('table','mtable'),h2=el('tr');h2.appendChild(el('th',null,'Model'));
+    classes.forEach(c=>h2.appendChild(el('th','num',c+' ('+(ch.per_class_support||{})[c]+')')));t2.appendChild(h2);
+    const add=(name,v,cls)=>{const tr=el('tr',cls);tr.appendChild(el('td',null,name));classes.forEach(c=>tr.appendChild(el('td','num',fmt(((v||{}).per_class||{})[c]?.recall,2))));t2.appendChild(tr)};
+    members.forEach(m=>add(m.name,m.c_val));if(r.ensemble)add('ensemble',r.ensemble.c_val,'ens');
+    (r.models||[]).filter(m=>m.role==='excluded').forEach(m=>add(m.name,m.c_val,'excl'));
+    w2.appendChild(t2);s2.appendChild(w2);s2.appendChild(el('div','stamp','In brackets: images of that class in the validation set. With 5 or 7 images, one image moves the recall by 0.2 or 0.14.'));card.appendChild(s2);
+  }
+  // --- ROC curves
+  if(classes.length){
+    const s3=el('div','section');s3.appendChild(el('strong',null,'ROC curves per class (one-vs-rest, validation)'));
+    const lg=el('div','legend');const leg=(name,s,label)=>{const i=el('span'),sw=el('span','swatch'+(s.dash?' dash':''));if(!s.dash)sw.style.background=s.color;i.append(sw,document.createTextNode(label||name));lg.appendChild(i)};
+    members.forEach(m=>leg(m.name,styles[m.name]));leg('ensemble',styles.ensemble,'ensemble');if(nx)leg('',{dash:'4 3'},'excluded (not voting)');
+    s3.appendChild(lg);
+    const grid=el('div','roc-grid');
+    classes.forEach(c=>{const curves={},aucs={};Object.entries(ch.models||{}).forEach(([n,d])=>{if(d.roc&&d.roc[c]){curves[n]=d.roc[c];aucs[n]=n==='ensemble'?r.ensemble?.c_val?.per_class?.[c]?.auc:(r.models||[]).find(m=>m.name===n)?.c_val?.per_class?.[c]?.auc}});
+      grid.appendChild(rocPanel(c,(ch.per_class_support||{})[c],curves,styles,aucs))});
+    s3.appendChild(grid);s3.appendChild(el('div','stamp','Hover a curve for the model and its AUC. Dashed diagonal: chance.'));card.appendChild(s3);
+  }
+  // --- ensemble confusion matrix
+  const ens=(ch.models||{}).ensemble;
+  if(ens&&ens.confusion){const s4=el('div','section');s4.appendChild(el('strong',null,'Ensemble confusion matrix (validation, row-normalised)'));s4.appendChild(confusion(ens.confusion,classes));card.appendChild(s4)}
+  if((r.caveats||[]).length){const s5=el('div','section');s5.appendChild(el('strong',null,'Read with care'));r.caveats.forEach(c=>s5.appendChild(el('div','stamp','· '+c)));card.appendChild(s5)}
+  messages.appendChild(card);toggleEmpty();scrollDown();
 }
 
 /* ---------- jobs ---------- */
@@ -782,7 +904,8 @@ async function runText(text,mode,train,overrides){
   await ensureSettings();
   addUser(text||'New training campaign.',[]);
   setBusy(true);humanShownFor=null;
-  renderGraph({orchestrator:'active',tester:'skipped',reviewer:'skipped'},{},'train');renderActivity([]);renderTraining({runs:{},trials:[],trials_done:0},'train');
+  const kind=mode==='train'?'train':'text';    // free text: nothing but the orchestrator until it is routed
+  renderGraph({orchestrator:'active',tester:'skipped',reviewer:'skipped'},{},kind);renderActivity([]);renderTraining({runs:{},trials:[],trials_done:0},kind);
   try{
     const response=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,request:text,train,settings:{...settings,...(overrides||{})}})});
     const data=await response.json();if(!response.ok)throw new Error(data.error||'request failed');

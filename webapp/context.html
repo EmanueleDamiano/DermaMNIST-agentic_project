@@ -166,11 +166,31 @@ function renderReviewer(p){
   const t=el('div','card');t.append(el('h2',null,'Full tester trace'),el('div','sub','The same lines printed with -v: the reviewer reads all of it.'));
   const det=el('details');det.append(el('summary',null,'show ('+p.trace.split('\n').length+' lines)'),el('pre',null,p.trace));t.appendChild(det);box.appendChild(t);
 }
+function renderModels(p){
+  const box=$('#readable'),f=p.facts||{},vs=f.validation_set||{};
+  const q=el('div','card');q.append(el('h2',null,'User question'),el('p','rationale',p.question||'—'));box.appendChild(q);
+  const v=el('div','card');v.append(el('h2',null,'Validation set: '+(vs.name||'')),el('div','sub',vs.description||''));
+  v.appendChild(table(Object.keys(vs.per_class||{}),[Object.values(vs.per_class||{})]));box.appendChild(v);
+  const m=el('div','card');m.append(el('h2',null,'Models in the facts'),el('div','sub','Metrics on the validation set, computed in code from the cached per-image probabilities.'));
+  m.appendChild(table(['Model','Role','Input','Trained on','Bal. acc','Macro-F1','Macro-AUC','Vote weight'],(f.models||[]).map(x=>[x.name,x.role,x.input_size_px?x.input_size_px+' px':'—',x.trained_on||'—',(x.c_val||{}).balanced_accuracy??'—',(x.c_val||{}).macro_f1??'—',(x.c_val||{}).macro_auc??'—',x.vote_weight??'—'])));
+  if(f.ensemble)m.appendChild(kv([['Ensemble members',(f.ensemble.members||[]).join(', ')],['Ensemble balanced accuracy',f.ensemble.c_val.balanced_accuracy],['Ensemble macro-AUC',f.ensemble.c_val.macro_auc]]));
+  box.appendChild(m);
+  const r=el('div','card');r.append(el('h2',null,'Rules and caveats'));r.appendChild(kv(Object.entries(f.rules||{})));
+  (f.caveats||[]).forEach(c=>r.appendChild(el('p','sub','· '+c)));box.appendChild(r);
+}
 function renderOutput(ctx){
   const box=$('#outputPanel');box.innerHTML='';
   if(ctx.status==='running'){box.appendChild(el('div','empty','The agent is still reasoning: the answer shows up here as soon as it arrives.'));return}
   if(ctx.error){const n=el('div','note');n.style.borderLeftColor='var(--danger)';n.textContent='Error: '+ctx.error;box.appendChild(n)}
   const out=ctx.output||{};
+  if(step==='inspector.explain'){
+    const c=el('div','card'),cl=out.claims||{};
+    c.append(el('h2',null,'Answer shown to the user'),el('p','rationale',out.answer||''));
+    c.appendChild(kv([['Written by',out.reasoner||'—'],['Check against the facts',{supported:'every figure and name is in the facts',rejected:'rejected: '+(cl.unsupported||[]).join(', '),not_checked:'deterministic answer, nothing to check'}[cl.verdict]||'running…']]));
+    box.appendChild(c);
+    const raw=el('div','card');raw.append(el('h2',null,'Raw LLM response'),el('div','sub',out.llm_raw?'Before the check in code.':'No LLM in this step: the answer above is the summary computed in code.'));
+    if(out.llm_raw)raw.appendChild(el('pre',null,out.llm_raw));box.appendChild(raw);return;
+  }
   if(step==='tester.reason'){
     (out.final||[]).forEach(f=>{const c=el('div','card');c.appendChild(imgHead(f.file,f.final_class+' · confidence '+f.confidence_level+(f.overridden?' · vote override ('+f.vote_class+')':'')));c.appendChild(el('h3',null,'Rationale'));c.appendChild(el('p','rationale',f.rationale));c.appendChild(kv([['Next step',f.suggested_next_step],['Cited sources',(f.sources||[]).map(s=>s.chunk_id).join(', ')||'—']]));box.appendChild(c)});
     (out.rejected_overrides||[]).forEach(r=>{const n=el('div','note');n.textContent='Override rejected by the code for '+r.file+': class '+r.proposed_class_id+' not among the candidates '+r.candidates.join(', ');box.appendChild(n)});
@@ -185,9 +205,9 @@ function renderOutput(ctx){
 function render(){
   const ctx=data.context;
   if(!ctx){$('#subtitle').textContent='Job '+job+' · the step has not started yet';$('#readable').innerHTML='';$('#readable').appendChild(el('div','empty','This step has not started yet. The page refreshes on its own.'));return}
-  const tester=step==='tester.reason';
-  $('#mark').textContent=tester?'TA':'RA';
-  $('#title').textContent=(tester?'Testing agent · Reasoning':'Reviewer agent · Consistency check');
+  const tester=step==='tester.reason',models=step==='inspector.explain';
+  $('#mark').textContent=models?'MA':tester?'TA':'RA';
+  $('#title').textContent=models?'Models agent · Answer from the facts':(tester?'Testing agent · Reasoning':'Reviewer agent · Consistency check');
   const elapsed=((ctx.finished||Date.now()/1000)-ctx.started);
   $('#subtitle').textContent='Job '+data.job+' · node '+ctx.node+' · '+(ctx.status==='running'?'running for ':'duration ')+fmtTime(elapsed);
   const pills=$('#pills');pills.innerHTML='';
@@ -195,18 +215,19 @@ function render(){
   const p=ctx.payload,json=JSON.stringify(p,null,1),chars=JSON.stringify(p).length+ctx.system.length;
   const nChunks=(p.images||[]).reduce((a,i)=>a+(i.knowledge||i.independent_kb||[]).length+(i.cited_by_tester||[]).length,0);
   const st=$('#stats');st.innerHTML='';
-  [[(p.images||[]).length,'images'],tester?[(p.ensemble||[]).length,'models in the ensemble']:[(p.trace||'').split('\n').length,'lines of tester trace'],[nChunks,'KB passages in the context'],[chars.toLocaleString('en'),'characters (prompt + data)'],['~'+Math.round(chars/3.5).toLocaleString('en'),'estimated tokens']].forEach(([b,s])=>{const d=el('div','stat');d.append(el('b',null,b),el('span',null,s));st.appendChild(d)});
+  (models?[[(p.facts?.models||[]).length,'models in the facts'],[p.facts?.validation_set?.images??'—','validation images'],[chars.toLocaleString('en'),'characters (prompt + data)'],['~'+Math.round(chars/3.5).toLocaleString('en'),'estimated tokens']]
+   :[[(p.images||[]).length,'images'],tester?[(p.ensemble||[]).length,'models in the ensemble']:[(p.trace||'').split('\n').length,'lines of tester trace'],[nChunks,'KB passages in the context'],[chars.toLocaleString('en'),'characters (prompt + data)'],['~'+Math.round(chars/3.5).toLocaleString('en'),'estimated tokens']]).forEach(([b,s])=>{const d=el('div','stat');d.append(el('b',null,b),el('span',null,s));st.appendChild(d)});
   const note=$('#note');note.innerHTML='';
-  const n=el('div','note');n.textContent=ctx.model?(tester?'This is exactly what the LLM receives: the system prompt and the JSON payload below. It does not see the images, only this data.':'The reviewer receives the tester\'s full trace, its decisions, the checks computed in code and KB passages retrieved independently. It does not see the images.'):'There is no LLM in this run: this is the data the deterministic rule worked on (weighted vote / automatic checks). With an LLM it would receive exactly this context.';note.appendChild(n);
+  const n=el('div','note');n.textContent=models?(ctx.model?'This is exactly what the LLM receives: the system prompt and the facts computed in code. Validation data only: the test split is never read. Its answer is then checked against these facts.':'There is no LLM in this run: the answer is the summary computed in code from these facts.'):ctx.model?(tester?'This is exactly what the LLM receives: the system prompt and the JSON payload below. It does not see the images, only this data.':'The reviewer receives the tester\'s full trace, its decisions, the checks computed in code and KB passages retrieved independently. It does not see the images.'):'There is no LLM in this run: this is the data the deterministic rule worked on (weighted vote / automatic checks). With an LLM it would receive exactly this context.';note.appendChild(n);
   const key=ctx.status+JSON.stringify(ctx.output||'').length;
   if(rendered!==key){
-    $('#readable').innerHTML='';if(p.error){$('#readable').appendChild(el('div','empty',p.error))}else if(tester)renderTester(p);else renderReviewer(p);
+    $('#readable').innerHTML='';if(p.error){$('#readable').appendChild(el('div','empty',p.error))}else if(models)renderModels(p);else if(tester)renderTester(p);else renderReviewer(p);
     $('#systemText').textContent=ctx.system;$('#payloadText').textContent=json;
     $('#payloadInfo').textContent='Sent as the user message, '+JSON.stringify(p).length.toLocaleString('en')+' characters';
     renderOutput(ctx);rendered=key;
   }
   const other=tester?'reviewer.review':'tester.reason';
-  if((data.available||[]).includes(other)){const b=$('#switchStep');b.hidden=false;b.textContent=(tester?'Open the reviewer\'s check':'Open the tester\'s reasoning')+' →';b.onclick=()=>{location.search='?job='+encodeURIComponent(job)+'&step='+other}}
+  if(!models&&(data.available||[]).includes(other)){const b=$('#switchStep');b.hidden=false;b.textContent=(tester?'Open the reviewer\'s check':'Open the tester\'s reasoning')+' →';b.onclick=()=>{location.search='?job='+encodeURIComponent(job)+'&step='+other}}
 }
 async function load(){
   try{

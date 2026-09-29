@@ -9,22 +9,28 @@ L'orchestratore riceve la richiesta e la **instrada**:
   trova, riassume la motivazione del tester per l'utente e spiega quale modello
   ha guidato la previsione e perché;
 - con una richiesta di training → **training agent** (`train_agent/`, vedi il
-  suo README), con le sue approvazioni umane.
+  suo README), con le sue approvazioni umane;
+- con una domanda sui modelli disponibili ("quali modelli ci sono?", "mostrami
+  le ROC", "da cosa è composto il C-val?") → **models agent** (`models_agent/`,
+  vedi il suo README): risposta dai fatti di validation, controllata in codice,
+  di sola lettura.
 
 ```mermaid
 graph TD
   START --> route
   route -- "immagini / modalità predict" --> tester["tester (predict_agent)"]
   route -- "training" --> trainer["trainer (train_agent)"]
+  route -- "domanda sui modelli" --> inspector["inspector (models_agent)"]
   route -- "non chiaro" --> clarify["clarify (interrupt)"]
   route -- "previsione senza immagini" --> answer
-  clarify --> tester & trainer & answer
+  clarify --> tester & trainer & inspector & answer
   tester -- errore --> END
   tester -- ok --> reviewer["reviewer (review_agent)"]
   reviewer -- "criticità + --ask-human" --> human_review["human_review (interrupt)"]
   reviewer -- altrimenti --> finalize
   human_review --> finalize --> END
   trainer --> END
+  inspector --> END
   answer --> END
 ```
 

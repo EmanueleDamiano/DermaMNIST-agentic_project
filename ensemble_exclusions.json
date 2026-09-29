@@ -1,4 +1,4 @@
 {
-  "probe": "2-epoch FPViT run that measured the training time per epoch on Colab; predicts almost only nevi (common-test macro-F1 0.18). Removed from the ensemble on 2026-09-29 by the project team.",
-  "smoke": "1-epoch FPViT smoke test of the training pipeline; predicts almost only nevi (common-test macro-F1 0.15). Removed from the ensemble on 2026-09-29 by the project team."
+  "probe": "2-epoch FPViT run that measured the training time per epoch on Colab; on DermaMNIST-C val it predicts nevus for 91.8 % of the images (balanced accuracy 0.226). Removed from the ensemble on 2026-09-29 by the project team.",
+  "smoke": "1-epoch FPViT smoke test of the training pipeline; on DermaMNIST-C val it predicts nevus for 93.5 % of the images (balanced accuracy 0.233). Removed from the ensemble on 2026-09-29 by the project team."
 }

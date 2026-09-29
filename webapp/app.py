@@ -66,7 +66,9 @@ STEP_LABELS = {
     "finalize": "Saves the review", "human_review": "Waits for the human decision",
 }
 ACTORS = {"orchestrator": "Orchestrator", "tester": "Testing agent",
-          "reviewer": "Reviewer agent", "trainer": "Training agent", "human": "Human"}
+          "reviewer": "Reviewer agent", "trainer": "Training agent", "human": "Human",
+          "inspector": "Models agent"}
+MODELS_STEPS = ["collect_facts", "explain", "check_claims"]
 
 # Training agent nodes shown in the graph (give_up is folded into validate).
 TRAINER_STEPS = ["plan", "approve_plan", "propose", "validate", "review_proposal", "approve_proposal",
@@ -80,6 +82,9 @@ STEP_LABELS.update({
     "train": "Trains (stops at plateau)", "analyse": "Analyses the run", "decide": "Decides whether to continue",
     "evaluate": "Evaluates the ensemble with the candidate", "approve_promotion": "Waits for the promotion decision",
     "promote": "Promotes into the ensemble",
+    "inspector": "Hands over to the Models agent",
+    "collect_facts": "Collects the model facts (validation only)", "explain": "Answers from the facts",
+    "check_claims": "Checks the answer against the facts",
 })
 
 JOBS: dict[str, dict[str, Any]] = {}
@@ -88,6 +93,7 @@ RUN_LOCK = threading.Lock()          # one prediction pipeline at a time: models
 TRAIN_LOCK = threading.Lock()        # one training campaign at a time; predictions do not wait for it
 APPS: dict[str, Any] = {}
 APPS_LOCK = threading.Lock()
+ROUTERS: dict[str, Any] = {}
 KB: dict[str, Any] = {}
 KB_LOCK = threading.Lock()
 HEALTH: dict[str, Any] = {"time": 0.0}
@@ -320,6 +326,30 @@ def _summarize(agent: str, node: str, w: dict, job: dict) -> tuple[str, list[str
                                          else "no contradiction found."),
                     [], "warn" if flag else "")
 
+    if agent == "inspector":
+        if node == "collect_facts":
+            facts = w.get("facts") or {}
+            members = [m["name"] for m in facts.get("models", []) if m.get("role") == "ensemble member"]
+            excluded = [m["name"] for m in facts.get("models", []) if m.get("role") == "excluded"]
+            vs = facts.get("validation_set") or {}
+            return (f"Collected the facts of {_n(len(members), 'ensemble member', 'ensemble members')} and "
+                    f"{_n(len(excluded), 'excluded run', 'excluded runs')} on {vs.get('name', 'validation')} "
+                    f"({vs.get('images', '?')} images).",
+                    [f"ensemble: {', '.join(members)}", f"excluded: {', '.join(excluded) or 'none'}"], "")
+        if node == "explain":
+            who = w.get("answered_by", "")
+            if w.get("llm_error"):
+                return f"The LLM failed ({w['llm_error']}): answering with the summary computed in code.", [], "warn"
+            return ("Answer from the summary computed in code (no LLM)." if who == "deterministic"
+                    else f"Answer written by {who} from the facts."), [], ""
+        if node == "check_claims":
+            c = w.get("claims") or {}
+            if c.get("verdict") == "rejected":
+                return ("The answer cited figures or names not in the facts: replaced by the summary "
+                        "computed in code.", [f"not in the facts: {', '.join(c.get('unsupported', []))}"], "warn")
+            return ("Every figure and name in the answer is in the facts." if c.get("verdict") == "supported"
+                    else "Deterministic answer: nothing to check."), [], ""
+
     if node == "human_review":
         d = w.get("human_decision") or {}
         return f"Human decision: {d.get('decision')}" + (f" — {d['note']}" if d.get("note") else ""), [], ""
@@ -329,6 +359,11 @@ def _summarize(agent: str, node: str, w: dict, job: dict) -> tuple[str, list[str
 
 
 def _progress(job: dict) -> int:
+    if job.get("kind") == "text":
+        return 5
+    if job.get("kind") == "models":
+        done = sum(s == "done" for s in job["steps"].get("inspector", {}).values())
+        return min(99, 10 + 30 * done)
     if job.get("kind") == "train":
         t = job["training"]
         return min(95, 5 + int(90 * t["trials_done"] / max(t.get("max_trials") or 1, 1)))
@@ -341,30 +376,32 @@ def _progress(job: dict) -> int:
 # The two nodes where an LLM reasons. Their full context is captured from the
 # node's own input at start (the same functions the agents use to build it),
 # so it can be inspected while the LLM is still working.
-REASONING_STEPS = {("tester", "reason"), ("reviewer", "review")}
+REASONING_STEPS = {("tester", "reason"), ("reviewer", "review"), ("inspector", "explain")}
 
 
 def _capture_context(job_id: str, agent: str, name: str, ev: dict, started: bool) -> None:
+    from models_agent.graph import EXPLAIN_SYSTEM, build_explain_payload
     from predict_agent.graph import REASON_SYSTEM, build_reason_payload
     from review_agent.graph import REVIEW_SYSTEM, build_review_payload
 
+    systems = {"tester": REASON_SYSTEM, "reviewer": REVIEW_SYSTEM, "inspector": EXPLAIN_SYSTEM}
+    builders = {"tester": build_reason_payload, "reviewer": build_review_payload,
+                "inspector": build_explain_payload}
     key = f"{agent}.{name}"
     with JOBS_LOCK:
         job = JOBS[job_id]
         settings = job["settings"]
         ctx = dict(job["contexts"].get(key) or {})
     if started:
-        model = (settings["tester_model"] if agent == "tester"
-                 else settings["reviewer_model"] if settings["reviewer_model"] is not None
-                 else settings["tester_model"])
+        model = (settings["reviewer_model"] if agent == "reviewer" and settings["reviewer_model"] is not None
+                 else settings["tester_model"])       # the models agent answers with the tester's LLM
         try:
-            payload = (build_reason_payload if agent == "tester" else build_review_payload)(ev["input"])
+            payload = builders[agent](ev["input"])
         except Exception as exc:                      # never break the run for the viewer
             payload = {"error": f"context could not be rebuilt: {exc}"}
         ctx = {"step": key, "agent": ACTORS[agent], "node": name, "model": model or "",
                "status": "running", "started": time.time(), "finished": None,
-               "system": REASON_SYSTEM if agent == "tester" else REVIEW_SYSTEM,
-               "payload": payload, "output": None, "error": ""}
+               "system": systems[agent], "payload": payload, "output": None, "error": ""}
     else:
         w = _writes(ev)
         ctx.update(status="error" if ev.get("error") else "done", finished=time.time(),
@@ -374,6 +411,9 @@ def _capture_context(job_id: str, agent: str, name: str, ev: dict, started: bool
                              "final": w.get("final", []),
                              "rejected_overrides": w.get("rejected_overrides", []),
                              "reasoner": w.get("reasoner")}
+        elif agent == "inspector":
+            ctx["output"] = {"llm_raw": w.get("llm_output") or None, "answer": w.get("answer", ""),
+                             "reasoner": w.get("answered_by"), "claims": None}
         else:
             ctx["output"] = {"llm_raw": w.get("llm_output") or None,
                              "review": w.get("review"), "reasoner": w.get("reviewer")}
@@ -389,7 +429,7 @@ def on_task_event(job_id: str, ns: tuple, ev: dict) -> None:
         job = JOBS[job_id]
         graph, steps = dict(job["graph"]), {k: dict(v) for k, v in job["steps"].items()}
 
-    if agent == "orchestrator" and name in ("route", "clarify", "answer", "trainer"):
+    if agent == "orchestrator" and name in ("route", "clarify", "answer", "trainer", "inspector"):
         _orchestrator_train_event(job_id, name, ev, started)
         return
     if agent == "trainer":
@@ -442,6 +482,11 @@ def on_task_event(job_id: str, ns: tuple, ev: dict) -> None:
     w = _writes(ev)
     failed = bool(ev.get("error")) or bool(w.get("error"))
     group[name] = "error" if failed else "done"
+    if (agent, name) == ("inspector", "check_claims"):       # the verdict belongs to the explain context
+        with JOBS_LOCK:
+            ctx = job["contexts"].get("inspector.explain")
+            if ctx and ctx.get("output") is not None:
+                ctx["output"]["claims"] = w.get("claims")
     msg, details, level = _summarize(agent, name, w, job)
     if ev.get("error"):
         msg, level = f"Error: {ev['error']}", "error"
@@ -463,17 +508,30 @@ def _orchestrator_train_event(job_id: str, name: str, ev: dict, started: bool) -
             how = {"caller": "mode chosen by you", "images": "there are images",
                    "llm": "interpreted by the LLM", "no_router": "no LLM to interpret it",
                    "router_error": "router error"}.get(r.get("by"), r.get("by"))
-            intent = {"predict": "prediction", "train": "training", "unclear": "unclear"}.get(r.get("intent"), r.get("intent"))
+            intent = {"predict": "prediction", "train": "training", "unclear": "unclear",
+                      "models": "question about the models"}.get(r.get("intent"), r.get("intent"))
             details = [f"reason: {r.get('reason', '')}"]
             if r.get("extracted"):
                 details.append(f"constraints extracted from the request: {r['extracted']}")
             activity(job_id, "Orchestrator", "route", f"Request routed: {intent} ({how}).", details)
     elif name == "clarify":
-        if started:
+        if started and not job.get("_clarify_announced"):
+            # LangGraph re-runs the node when it resumes: ask once in the trace
+            job["_clarify_announced"] = True
             graph["human"] = "waiting"
             activity(job_id, "Orchestrator", "clarify", "It is not clear what you want to do: asking you.")
+        elif not started and not ev.get("interrupts"):
+            graph["human"] = "done"
+            steps["human"]["decision"] = "done"
     elif name == "answer" and not started:
         activity(job_id, "Orchestrator", "answer", w.get("report", ""))
+    elif name == "inspector":
+        if started:
+            _as_models_job(job, graph, steps)
+            if not job.get("_inspector_announced"):
+                job["_inspector_announced"] = True
+                activity(job_id, "Orchestrator", "inspector", "Handing the question to the Models agent.")
+        graph["inspector"] = "active" if started else ("error" if ev.get("error") else "done")
     elif name == "trainer":
         if not started and ev.get("interrupts"):
             return                     # the subgraph paused on a human approval: not finished
@@ -522,6 +580,28 @@ def _trainer_event(job_id: str, name: str, ev: dict, started: bool) -> None:
                 t["trials"].append(_compact_trial(tr))
         job["graph"], job["steps"] = graph, steps
         job["percent"] = _progress(job)
+
+
+def _as_models_job(job: dict, graph: dict, steps: dict) -> None:
+    """A text job the router sent to the models agent: show that agent, not the trainer."""
+    job["kind"] = "models"
+    graph.update({"inspector": graph.get("inspector", "idle"), "trainer": "skipped",
+                  "tester": "skipped", "reviewer": "skipped"})
+    if graph.get("human") == "idle":
+        graph["human"] = "skipped"
+    steps.setdefault("inspector", {s: "idle" for s in MODELS_STEPS})
+    steps.setdefault("orchestrator", {})["finalize"] = "skipped"
+
+
+def _models_payload(values: dict) -> dict:
+    mr = values.get("models_result") or {}
+    facts = mr.get("facts") or {}
+    return {"kind": "models", "report": values.get("report", ""), "error": values.get("error", ""),
+            "answered_by": mr.get("answered_by"), "claims": mr.get("claims"), "llm_error": mr.get("llm_error", ""),
+            "question": mr.get("request", ""),
+            "validation_set": facts.get("validation_set"), "ensemble": facts.get("ensemble"),
+            "models": facts.get("models", []), "caveats": facts.get("caveats", []),
+            "charts": mr.get("charts") or {}}
 
 
 def _compact_trial(tr: dict) -> dict:
@@ -601,15 +681,31 @@ def _result_payload(values: dict) -> dict:
     }
 
 
+class _NoLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
 def run_stream(job_id: str, payload) -> None:
     """Run (or resume) the orchestrator for one job, translating its task stream."""
     with JOBS_LOCK:
         job = JOBS[job_id]
         settings, config, kind = job["settings"], job["config"], job.get("kind", "predict")
-    as_payload = _train_payload if kind == "train" else _result_payload
+
+    def as_payload(values: dict) -> dict:
+        if values.get("models_result"):
+            return _models_payload(values)
+        return _train_payload(values) if kind in ("train", "models") else _result_payload(values)
+
+    # A question about the models reads files only: it takes no lock, so it
+    # never waits behind a training campaign or a prediction.
+    lock = {"train": TRAIN_LOCK, "models": None}.get(kind, RUN_LOCK)
     try:
-        with (TRAIN_LOCK if kind == "train" else RUN_LOCK):
-            app = get_app(settings, train=kind == "train")
+        with (lock or _NoLock()):
+            app = get_app(settings, train=kind in ("train", "models"))
             for ns, mode, ev in app.stream(payload, config, stream_mode=["tasks", "custom"], subgraphs=True):
                 if mode == "custom":
                     on_custom_event(job_id, ev)
@@ -637,6 +733,8 @@ def run_stream(job_id: str, payload) -> None:
             graph["human"] = "skipped"
         if kind == "train" and graph.get("trainer") == "active":
             graph["trainer"] = "done"
+        if graph.get("inspector") == "active":
+            graph["inspector"] = "done"
         activity(job_id, "Orchestrator", "done",
                  "Process stopped: " + values["error"] if failed
                  else "Result verified and returned.", level="error" if failed else "")
@@ -721,13 +819,15 @@ def start_train_job(payload: dict, settings: dict) -> str:
     request = str(payload.get("request") or "")[:2000]
     constraints = _train_constraints(payload.get("train"))
     job = {
-        "id": job_id, "kind": "train", "status": "running", "percent": 2, "stage": "Preparing the request",
+        # "text" until the router has decided: then "train" or "models"
+        "id": job_id, "kind": "train" if mode == "train" else "text", "status": "running", "percent": 2,
+        "stage": "Preparing the request",
         "settings": settings, "config": {"configurable": {"thread_id": job_id}}, "images": [],
         "graph": {"orchestrator": "active", "trainer": "idle", "human": "idle",
-                  "tester": "skipped", "reviewer": "skipped"},
+                  "tester": "skipped", "reviewer": "skipped", "inspector": "idle"},
         "steps": {"trainer": {s: "idle" for s in TRAINER_STEPS}, "human": {"decision": "idle"},
                   "orchestrator": {"route": "idle", "finalize": "skipped"},
-                  "tester": {}, "reviewer": {}},
+                  "tester": {}, "reviewer": {}, "inspector": {s: "idle" for s in MODELS_STEPS}},
         "training": {"plan": None, "max_trials": constraints.get("max_trials"), "trials_done": 0,
                      "trials": [], "runs": {}, "current": None, "campaign_id": None},
         "activities": [], "result": None, "error": "", "interrupt": None, "contexts": {},
@@ -735,15 +835,62 @@ def start_train_job(payload: dict, settings: dict) -> str:
     with JOBS_LOCK:
         JOBS[job_id] = job
     tm = settings["trainer_model"] if settings["trainer_model"] is not None else settings["tester_model"]
-    activity(job_id, "Orchestrator", "start",
-             ("Training request accepted." if mode == "train" else "Text request: routing it.")
-             + f" Training agent: {tm or 'deterministic policy (no LLM)'}.",
-             [f"constraints: {constraints or 'none (default values, editable in the plan)'}"])
-    if TRAIN_LOCK.locked():
-        activity(job_id, "Orchestrator", "queue", "Another campaign is running: this one starts as soon as it ends.")
-    threading.Thread(target=run_stream, daemon=True,
-                     args=(job_id, {"request": request, "mode": mode, "constraints": constraints})).start()
+    if mode == "train":
+        activity(job_id, "Orchestrator", "start",
+                 f"Training request accepted. Training agent: {tm or 'deterministic policy (no LLM)'}.",
+                 [f"constraints: {constraints or 'none (default values, editable in the plan)'}"])
+    else:
+        activity(job_id, "Orchestrator", "start",
+                 f"Text request: routing it with {tm}." if tm
+                 else "Text request: no LLM to interpret it, so you will be asked what you want to do.")
+    payload = {"request": request, "mode": mode, "constraints": constraints}
+    target = run_stream if mode == "train" else run_text_job
+    threading.Thread(target=target, daemon=True, args=(job_id, payload)).start()
     return job_id
+
+
+def _router(settings: dict):
+    """The orchestrator's intent router, with the same LLM it uses (None without one)."""
+    from orchestrator.graph import make_router
+    from predict_agent.agent import build_reasoning_llm
+    tm = settings["trainer_model"] if settings["trainer_model"] is not None else settings["tester_model"]
+    if not tm:
+        return None
+    with APPS_LOCK:
+        if tm not in ROUTERS:
+            ROUTERS[tm] = make_router(build_reasoning_llm(tm))
+        return ROUTERS[tm]
+
+
+def run_text_job(job_id: str, payload: dict) -> None:
+    """Free text: know the intent BEFORE taking a lock.
+
+    The graph would route it too, but only after the job had queued behind the
+    training lock - and a campaign can hold it for an hour. So the router runs
+    here once, and the graph receives its answer (its route node keeps a route
+    it is given, so there is no second LLM call).
+    """
+    from orchestrator.graph import route_text
+    from predict_agent.graph import paths_from_text
+    with JOBS_LOCK:
+        settings = JOBS[job_id]["settings"]
+        JOBS[job_id]["steps"]["orchestrator"]["route"] = "active"
+    update_job(job_id, stage=STEP_LABELS["route"])
+    router = _router(settings)
+    if router is not None and not paths_from_text(payload["request"]):
+        routed = route_text(router, payload["request"])
+        payload = {**payload, "route": routed["route"],
+                   "constraints": {**routed.get("constraints", {}), **(payload.get("constraints") or {})}}
+    with JOBS_LOCK:
+        job = JOBS[job_id]
+        if (payload.get("route") or {}).get("intent") == "models":
+            _as_models_job(job, job["graph"], job["steps"])
+        else:
+            job["kind"] = "train"          # training, or unclear: the graph (and its lock) decides
+        kind = job["kind"]
+    if kind == "train" and TRAIN_LOCK.locked():
+        activity(job_id, "Orchestrator", "queue", "Another campaign is running: this one starts as soon as it ends.")
+    run_stream(job_id, payload)
 
 
 def start_job(payload: dict) -> str:
@@ -826,7 +973,9 @@ def resume_job(payload: dict) -> None:
 
 
 def public_job(job: dict) -> dict:
-    return {k: v for k, v in job.items() if k not in ("config", "_files", "contexts", "_trainer_announced")} | {
+    return {k: v for k, v in job.items()
+            if k not in ("config", "_files", "contexts", "_trainer_announced", "_inspector_announced",
+                         "_clarify_announced")} | {
         "context_steps": sorted(job.get("contexts", {}))}
 
 

@@ -125,10 +125,11 @@ The system uses specialized agents built as LangGraph graphs, connected through 
 
 | Agent | Task | Main inputs | Output |
 | --- | --- | --- | --- |
-| **Orchestrator** | Route each request and surface the other agents' interrupts to the human | User request, images, platform settings | Route (predict, train, clarify), final report, review log entry |
+| **Orchestrator** | Route each request and surface the other agents' interrupts to the human | User request, images, platform settings | Route (predict, train, models, clarify), final report, review log entry |
 | **Testing Agent** | Classify one or more images with every model of the ensemble and decide the final class | Images, ensemble checkpoints with their validation metrics, execution log, clinical knowledge base | Per-image vote, final class, confidence, cited rationale, execution ID |
 | **Reviewer Agent** | Check the Testing Agent's full trace for consistency with the evidence | Tester trace and decisions, independent retrieval, deterministic checks | Per-image verdict, findings with severity, decisive model, summary for the user |
 | **Training Agent** | Plan a training campaign, propose and run each training segment, diagnose curves, and propose promotion | Request and constraints, past runs and campaigns, ensemble state, training knowledge base | Campaign record, run checkpoints, promotion evaluation, promoted model |
+| **Models Agent** | Answer questions about the available models and their data | Ensemble and excluded checkpoints, cached validation probabilities, promotion registry, exclusion list, dataset class counts | Answer grounded in validation facts, claims check, model table, per-class ROC curves, ensemble confusion matrix |
 | **Human (Reviewer role)** | Approve or reject the decisions the agents must not take alone | Interrupt payloads: plan, proposal, promotion, review findings, unclear intent | Decision and note, stored in the logs |
 
 The six functional roles of the original design are all covered, but four of them run as nodes or tools inside the agents above rather than as separate agents:

@@ -4,7 +4,8 @@ Orchestrator: route the request, then run the right agents.
     START -> route -+-> tester -> reviewer -> [human_review] -> finalize -> END
                     |        \\___ (tester failed) _______________/
                     +-> trainer ------------------------------------------> END
-                    +-> [clarify] -> tester | trainer | END
+                    +-> inspector (questions about the models) -------------> END
+                    +-> [clarify] -> tester | trainer | inspector | END
                     +-> answer (nothing to do, e.g. a prediction without images) -> END
 
 route         deterministic when it can be: an explicit `mode`, or images in the
@@ -17,6 +18,9 @@ route         deterministic when it can be: an explicit `mode`, or images in the
 trainer       `train_agent`: the training campaign, with its own human
               approvals (plan, proposals outside the autonomy envelope,
               promotion), which surface here as interrupts of this graph.
+inspector     `models_agent`: answers questions about the available models
+              (characteristics, validation metrics, ROC curves, the validation
+              set, the rules of the vote). Read-only, no interrupt.
 
 tester        `predict_agent`: ensemble prediction, vote, memory, KB, reasoning.
 reviewer      `review_agent`: reads the tester's full trace and decisions, checks
@@ -56,10 +60,11 @@ class OrchestratorState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]
     image_paths: list[str]
     request: str
-    mode: str                  # "predict" | "train" | "" (let route decide)
+    mode: str                  # "predict" | "train" | "models" | "" (let route decide)
     constraints: dict          # training constraints (from the caller or extracted by route)
     route: dict                # how the request was routed, and why
     train_result: dict         # trainer's final state, minus messages
+    models_result: dict        # inspector's final state, minus messages
     test_result: dict          # tester's final state, minus messages
     review_result: dict        # reviewer's final state, minus messages
     needs_human_review: bool
@@ -69,11 +74,17 @@ class OrchestratorState(TypedDict, total=False):
 
 
 ROUTE_SYSTEM = """\
-You route requests on a dermatology research platform with two capabilities:
+You route requests on a dermatology research platform with three capabilities:
 - predict: classify dermatoscopic IMAGES with the local models (needs images);
-- train: train or improve the classification models (a training campaign).
-Return the intent: "predict", "train", or "unclear" when the request does not
-say which (greetings, questions about something else, ambiguous wording).
+- train: train or improve the classification models (a training campaign);
+- models: answer questions about the models already available and their data -
+  which models there are, how they were trained, their accuracy, AUC or ROC
+  curves, why one is excluded, how the vote or the promotion works, what the
+  validation set (DermaMNIST-C val) or the datasets contain.
+Return the intent: "predict", "train", "models", or "unclear" when the request
+does not say which (greetings, questions about something else, ambiguous wording).
+A question about the models is "models", not "train": "train" only when the
+user asks to train or improve something.
 For "train", extract ONLY constraints the user explicitly stated - never invent
 values: arch (fpvit | resnet18 | efficientnet_b0 | convnext_tiny), max_trials,
 max_minutes, max_epochs_per_run, patience, target_score (0-1), select_on
@@ -84,12 +95,17 @@ of runs/experiments" -> max_trials 2; "half an hour" -> max_minutes 30.
 """
 
 
-def _make_router(llm):
+TRAIN_KEYS = ("arch", "max_trials", "max_minutes", "max_epochs_per_run", "patience",
+              "target_score", "select_on", "autonomy")
+
+
+def make_router(llm):
+    """text -> the router LLM's structured answer (intent, reason, training constraints)."""
     from typing import Literal, Optional as Opt
     from pydantic import BaseModel, Field
 
     class Route(BaseModel):
-        intent: Literal["predict", "train", "unclear"]
+        intent: Literal["predict", "train", "models", "unclear"]
         reason: str = Field(description="one short sentence")
         arch: Opt[Literal["fpvit", "resnet18", "efficientnet_b0", "convnext_tiny"]] = None
         max_trials: Opt[int] = None
@@ -108,6 +124,27 @@ def _make_router(llm):
     return route
 
 
+def route_text(router, text: str) -> dict:
+    """Route a text request without images: {"route": ..., "constraints"?: ...}.
+
+    Shared by the graph's route node and by callers that must know the intent
+    before running the graph (the platform decides from it which lock a job
+    needs: a question about the models must not queue behind a training campaign).
+    """
+    if router is None or not text.strip():
+        return {"route": {"intent": "unclear", "by": "no_router",
+                          "reason": "no images and no LLM to interpret the request"}}
+    try:
+        r = router(text)
+    except Exception as exc:
+        return {"route": {"intent": "unclear", "by": "router_error", "reason": str(exc)}}
+    extracted = {k: r[k] for k in TRAIN_KEYS if r.get(k) is not None}
+    out = {"route": {"intent": r["intent"], "by": "llm", "reason": r["reason"], "extracted": extracted}}
+    if r["intent"] == "train":
+        out["constraints"] = extracted
+    return out
+
+
 def _last_human_text(messages) -> str:
     for m in reversed(messages or []):
         if getattr(m, "type", "") == "human" or (isinstance(m, tuple) and m[0] in ("human", "user")):
@@ -120,50 +157,48 @@ def _last_human_text(messages) -> str:
 def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
                              ask_human: bool = False,
                              review_log: str | Path = DEFAULT_REVIEW_LOG,
-                             checkpointer=None, trainer=None, router_llm=None):
+                             checkpointer=None, trainer=None, router_llm=None,
+                             inspector=None, min_balanced_acc: float = 0.0):
     """`trainer`: a compiled train_agent graph (compiled WITHOUT its own
     checkpointer, so it inherits this graph's and its interrupts resume here).
-    `router_llm`: chat model for intent routing when there are no images."""
+    `router_llm`: chat model for intent routing when there are no images.
+    `inspector`: a compiled models_agent graph, for questions about the models."""
     review_log = Path(review_log)
-    router = _make_router(router_llm) if router_llm is not None else None
-    TRAIN_KEYS = ("arch", "max_trials", "max_minutes", "max_epochs_per_run", "patience",
-                  "target_score", "select_on", "autonomy")
+    router = make_router(router_llm) if router_llm is not None else None
 
     def route(state: OrchestratorState) -> dict:
         from predict_agent.graph import paths_from_text
         text = state.get("request") or _last_human_text(state.get("messages"))
         mode = state.get("mode") or ""
-        if mode in ("predict", "train"):
+        if mode in ("predict", "train", "models"):
             return {"route": {"intent": mode, "by": "caller", "reason": "explicit mode"}}
+        if (state.get("route") or {}).get("intent"):
+            return {"route": state["route"]}         # already routed by the caller (route_text)
         if state.get("image_paths") or paths_from_text(text):
             return {"route": {"intent": "predict", "by": "images",
                               "reason": "the request contains images"}}
-        if router is None or not text.strip():
-            return {"route": {"intent": "unclear", "by": "no_router",
-                              "reason": "no images and no LLM to interpret the request"}}
-        try:
-            r = router(text)
-        except Exception as exc:
-            return {"route": {"intent": "unclear", "by": "router_error", "reason": str(exc)}}
-        extracted = {k: r[k] for k in TRAIN_KEYS if r.get(k) is not None}
-        out = {"route": {"intent": r["intent"], "by": "llm", "reason": r["reason"], "extracted": extracted}}
-        if r["intent"] == "train":
-            out["constraints"] = {**extracted, **(state.get("constraints") or {})}   # the caller wins
+        out = route_text(router, text)
+        if "constraints" in out:
+            out["constraints"] = {**out["constraints"], **(state.get("constraints") or {})}   # the caller wins
         return out
 
     def clarify(state: OrchestratorState) -> dict:
         answer = interrupt({"kind": "clarify_intent",
-                            "question": "It is not clear what you want to do: a prediction on images or a training run?",
+                            "question": ("It is not clear what you want to do: a prediction on images, a training run"
+                                         + (", or information about the available models?" if inspector is not None
+                                            else "?")),
                             "reason": state["route"].get("reason"),
                             "options": [{"value": "predict", "label": "Prediction on images"},
-                                        {"value": "train", "label": "Train the models"},
-                                        {"value": "cancel", "label": "Cancel"}]})
+                                        {"value": "train", "label": "Train the models"}]
+                                       + ([{"value": "models", "label": "Show the available models"}]
+                                          if inspector is not None else [])
+                                       + [{"value": "cancel", "label": "Cancel"}]})
         choice = answer.get("decision") if isinstance(answer, dict) else str(answer)
         if choice == "predict" and isinstance(answer, dict) and answer.get("image_paths"):
             return {"route": {**state["route"], "intent": "predict", "by": "human"},
                     "image_paths": answer["image_paths"]}
-        return {"route": {**state["route"], "intent": choice if choice in ("predict", "train") else "cancel",
-                          "by": "human"}}
+        return {"route": {**state["route"], "intent": choice if choice in ("predict", "train", "models")
+                          else "cancel", "by": "human"}}
 
     def answer(state: OrchestratorState) -> dict:
         r = state.get("route", {})
@@ -171,6 +206,8 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
             msg = "A prediction needs images: attach them (or give their paths) and try again."
         elif r.get("intent") == "train" and trainer is None:
             msg = "The training agent is not configured in this orchestrator."
+        elif r.get("intent") == "models" and inspector is None:
+            msg = "The models agent is not configured in this orchestrator."
         else:
             msg = "Request cancelled."
         return {"report": msg, "messages": [AIMessage(content=msg, name="derma_orchestrator")]}
@@ -182,6 +219,13 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
         return {"train_result": result, "report": out.get("report", ""),
                 "messages": [AIMessage(content=out.get("report", ""), name="derma_trainer")]}
 
+    def run_inspector(state: OrchestratorState) -> dict:
+        text = state.get("request") or _last_human_text(state.get("messages"))
+        out = inspector.invoke({"request": text, "min_balanced_acc": min_balanced_acc})
+        result = {k: v for k, v in out.items() if k != "messages"}
+        return {"models_result": result, "report": out.get("report", ""), "error": out.get("error", ""),
+                "messages": [AIMessage(content=out.get("report", ""), name="derma_models")]}
+
     def after_route(state: OrchestratorState) -> str:
         intent = state["route"]["intent"]
         if intent == "predict":
@@ -189,12 +233,16 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
             return "tester" if has_images else "answer"
         if intent == "train":
             return "trainer" if trainer is not None else "answer"
+        if intent == "models":
+            return "inspector" if inspector is not None else "answer"
         return "clarify"
 
     def after_clarify(state: OrchestratorState) -> str:
         intent = state["route"]["intent"]
         if intent == "train":
             return "trainer" if trainer is not None else "answer"
+        if intent == "models":
+            return "inspector" if inspector is not None else "answer"
         if intent == "predict" and state.get("image_paths"):
             return "tester"
         return "answer"
@@ -280,15 +328,17 @@ def build_orchestrator_graph(tester, reviewer, *, explain_process: bool = False,
     if trainer is not None:
         g.add_node("trainer", run_trainer)
         g.add_edge("trainer", END)
+    if inspector is not None:
+        g.add_node("inspector", run_inspector)
+        g.add_edge("inspector", END)
     g.add_node("tester", run_tester)
     g.add_node("reviewer", run_reviewer)
     g.add_node("human_review", human_review)
     g.add_node("finalize", finalize)
     g.add_edge(START, "route")
-    targets = ["tester", "answer", "clarify"] + (["trainer"] if trainer is not None else [])
-    g.add_conditional_edges("route", after_route, targets)
-    g.add_conditional_edges("clarify", after_clarify,
-                            ["tester", "answer"] + (["trainer"] if trainer is not None else []))
+    extra = (["trainer"] if trainer is not None else []) + (["inspector"] if inspector is not None else [])
+    g.add_conditional_edges("route", after_route, ["tester", "answer", "clarify"] + extra)
+    g.add_conditional_edges("clarify", after_clarify, ["tester", "answer"] + extra)
     g.add_edge("answer", END)
     g.add_conditional_edges("tester", after_tester, {"ok": "reviewer", "failed": END})
     g.add_conditional_edges("reviewer", after_reviewer, {"ask": "human_review", "done": "finalize"})
@@ -318,7 +368,8 @@ def build_orchestrator(model: Optional[str] = "claude-sonnet-5",
             of the run; defaults to `verbose > 0` (a UI can ask for it without
             the stderr trace).
         ask_human: pause for a human decision when the reviewer flags issues.
-        with_trainer: add the training branch (train_agent) and intent routing.
+        with_trainer: add the training branch (train_agent), the models branch
+            (models_agent, answering with `model`'s LLM) and intent routing.
             A checkpointer is then required (its approvals are interrupts); an
             InMemorySaver is created if none is given.
         trainer_model: LLM of the training agent (default: `model`); None with
@@ -338,12 +389,14 @@ def build_orchestrator(model: Optional[str] = "claude-sonnet-5",
         llm=build_reasoning_llm(reviewer_model) if reviewer_model else None,
         llm_name=reviewer_model or "", verbose=verbose,
     )
-    trainer, router_llm = None, None
+    trainer, router_llm, inspector = None, None, None
     if with_trainer:
+        from models_agent import build_models_agent
         from train_agent.agent import build_trainer
         tmodel = trainer_model if trainer_model is not None else model
         trainer = build_trainer(tmodel or None, verbose=verbose)       # no checkpointer: inherits ours
         router_llm = build_reasoning_llm(tmodel) if tmodel else None
+        inspector = build_models_agent(model or None)
     if (ask_human or with_trainer) and checkpointer is None:
         from langgraph.checkpoint.memory import InMemorySaver
         checkpointer = InMemorySaver()
@@ -351,4 +404,6 @@ def build_orchestrator(model: Optional[str] = "claude-sonnet-5",
         explain_process = verbose > 0
     return build_orchestrator_graph(tester, reviewer, explain_process=explain_process,
                                     ask_human=ask_human, review_log=review_log,
-                                    checkpointer=checkpointer, trainer=trainer, router_llm=router_llm)
+                                    checkpointer=checkpointer, trainer=trainer, router_llm=router_llm,
+                                    inspector=inspector,
+                                    min_balanced_acc=(predictor_kwargs or {}).get("min_balanced_acc", 0.0))
