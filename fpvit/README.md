@@ -377,9 +377,12 @@ del checkpoint. Checkpoint precedenti senza queste chiavi si ricaricano a 28
 px come prima. `predict.py`, `evaluate_test.py` e il `ModelZoo` del testing
 agent ridimensionano ogni immagine alla risoluzione del modello e applicano la
 sua normalizzazione (`fpvit.dataset.eval_transform_for`). `evaluate_test.py
---dataset dermamnist_e` valuta un modello di C sul test esterno. Il gate di
-promozione del training agent accetta per ora solo modelli a 28 px dello split
-ufficiale, perché confronta tutti sulla stessa validation.
+--dataset dermamnist_e` valuta un modello di C sul test esterno. L'ensemble
+del testing agent e il gate di promozione confrontano tutti i modelli, a 28 o
+224 px, sullo stesso set di validazione (DermaMNIST-C val, vedi
+`predict_agent/validation.py`); un modello addestrato su E viene rifiutato,
+perché il suo train contiene quel set. I modelli addestrati su Colab entrano
+dal gate da riga di comando: `python -m train_agent.promotion <run>`.
 
 Il notebook `colab/fpvit_224_dermamnist_c.ipynb` esegue l'ablation da zero
 contro pre-addestrato (3 seed ciascuna) su GPU Colab, riprendibile dopo una

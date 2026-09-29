@@ -77,7 +77,7 @@ A DermaMNIST model can report a strong test score while still being affected by 
 
 ### 2.3 Project Scope
 
-- **Dataset:** DermaMNIST, using the seven lesion classes derived from HAM10000 [18]. The official split is kept for benchmark comparison and is the split the agents use today. The lesion-level corrected release DermaMNIST-C [2] is the leakage-aware split for training and selection at 28 and 224 px. The DermaMNIST-E test split, built from the ISIC 2018 challenge [19] and therefore outside DermaMNIST, is used only as an external test.
+- **Dataset:** DermaMNIST, using the seven lesion classes derived from HAM10000 [18]. The official split is kept for benchmark comparison and is the split the Training Agent trains on today. The lesion-level corrected release DermaMNIST-C [2] is the leakage-aware split for training and selection at 28 and 224 px, and its validation split is the common validation set of the ensemble. The DermaMNIST-E test split, built from the ISIC 2018 challenge [19] and therefore outside DermaMNIST, is used only as an external test.
 - **Task:** supervised multi-class image classification with fixed train, validation, and test handling.
 - **Multi-agent system:** Orchestrator, Testing Agent, Reviewer Agent, and Training Agent, each a compiled LangGraph graph, with a human in the loop through graph interrupts and a local web platform as the user interface. Evaluation, enrichment, and explanation are tools and nodes inside these agents (Section 4.1).
 - **Classifiers:** a Feature Pyramid Vision Transformer (FPViT) [17] and three compact CNN families (ResNet-18, EfficientNet-B0, ConvNeXt-Tiny), combined in a skill-weighted ensemble.
@@ -136,7 +136,7 @@ The six functional roles of the original design are all covered, but four of the
 | Functional role | Implementation |
 | --- | --- |
 | Training | Training Agent (`train_agent/`) |
-| Evaluation and selection | Promotion gate of the Training Agent (`promotion.py`): the ensemble is scored with and without the candidate on validation data; `fpvit/engine.evaluate()` computes the metrics |
+| Evaluation and selection | Promotion gate of the Training Agent (`promotion.py`): the ensemble is scored with and without the candidate on the common validation set (DermaMNIST-C val); `fpvit/engine.evaluate()` computes the metrics |
 | Enrichment | Retrieval node of the Testing Agent, plus an independent retrieval in the Reviewer Agent |
 | Explanation | Reasoning node of the Testing Agent, plus the Reviewer Agent's summary and decisive-model explanation |
 | Isolated testing | `evaluate_test.py`, a separate manual function that only loads the test split, run once on the frozen package (WP6) |
@@ -221,8 +221,8 @@ The data pipeline loads DermaMNIST through the `medmnist` package and the correc
 
 | Dataset | Split | Train / val / test | Resolutions | Use |
 | --- | --- | --- | --- | --- |
-| DermaMNIST | official, image-level | 7,007 / 1,003 / 2,005 | 28 (64/128/224 via MedMNIST+, same split) | benchmark comparison; the split the agents and the promotion gate use today |
-| DermaMNIST-C | lesion-level corrected [2] | 8,215 / 573 / 1,227 | 28, 224 | leakage-aware training, selection, and final test |
+| DermaMNIST | official, image-level | 7,007 / 1,003 / 2,005 | 28 (64/128/224 via MedMNIST+, same split) | benchmark comparison; the split the Training Agent trains on today |
+| DermaMNIST-C | lesion-level corrected [2] | 8,215 / 573 / 1,227 | 28, 224 | leakage-aware training and selection; common validation set of the ensemble and the promotion gate; final test |
 | DermaMNIST-E | train = all HAM10000, val/test = ISIC 2018 | 10,015 / 193 / 1,511 | 28, 224 | external test only, for models trained on DermaMNIST-C |
 
 At 224 px, images are resized directly from the originals, not upscaled from 28 px. The E training split contains every validation and test image of C, so a model trained on E is never tested on C.
@@ -239,13 +239,15 @@ The Testing Agent combines every available checkpoint instead of relying on one 
 | Hard vote | each model's argmax, weighted by its validation precision for that class | check against majority-class bias |
 | Most confident model | highest top-1 probability | reported, never decisive on its own |
 
-A new model enters the ensemble only through the promotion gate (Section 4.4) and a human approval. One model ships with the repository, `baseline_paper` (FPViT with the reference hyperparameters, validation balanced accuracy 0.533), so a fresh clone runs the whole system.
+All three views use each model's metrics on the common validation set, DermaMNIST-C val, measured at the model's own input size, so that models trained on different splits and at different resolutions are weighted on the same images. A model does not vote on an image smaller than its own input: shown 28 px images upsampled to 224 px, the 224 px models predict nevus for 95 % of the DermaMNIST-C test images and, with their high weight, would lower the ensemble's balanced accuracy from 0.53 to 0.28. On a 28 px image only the 28 px models vote; on a 224 px image all models vote, and the 28 px models receive it downsampled, as the dataset images were.
+
+A new model enters the ensemble only through the promotion gate (Section 4.4) and a human approval, and a run is removed from it only by a human, with the reason recorded in `ensemble_exclusions.json`. One model ships with the repository, `baseline_paper` (FPViT with the reference hyperparameters, balanced accuracy 0.588 on DermaMNIST-C val), so a fresh clone runs the whole system.
 
 ### 4.4 Evaluation
 
 The evaluator reports accuracy for benchmark comparison and uses macro-F1, balanced accuracy, macro one-vs-rest AUROC, per-class precision, recall and F1, and the confusion matrix for model assessment. Plain accuracy is never a selection metric: predicting the majority class alone reaches 0.67. A training campaign selects checkpoints on balanced accuracy, macro-F1, or macro-AUROC, fixed in the plan the human approves.
 
-Promotion is decided on validation data only. The promotion gate scores the soft-vote ensemble with and without the candidate on the validation split, and reports the change in balanced accuracy and in per-class recall. A gain below 0.005 is treated as validation noise. Because the vote weights and the evaluation both come from the validation split, absolute numbers are optimistic, but the with/without comparison is fair. The gate currently compares only 28 px models of the official split, so that every member is scored on the same validation set. Admitting DermaMNIST-C and 224 px models requires moving the ensemble validation to C-val.
+Promotion is decided on validation data only. The promotion gate scores the soft-vote ensemble with and without the candidate on the validation split, and reports the change in balanced accuracy and in per-class recall. A gain below 0.005 is treated as validation noise. Because the vote weights and the evaluation both come from the validation split, absolute numbers are optimistic, but the with/without comparison is fair. Every member and the candidate are scored on the same set, DermaMNIST-C val, each at its own input size. C-val contains no lesion of the official or the C training split, so it is leakage-free for both; a model trained on DermaMNIST-E is refused, because its training split contains C-val. C-val is a subset of the official validation split, on which the official-split models chose their best epoch, so their validation numbers are slightly optimistic. Models trained outside the Training Agent, for example on a cloud GPU, pass through the same gate from the command line, with the human decision recorded in the same registry.
 
 The uncertainty rule is deterministic and fixed. Confidence is high when the three views agree, the top-1 minus top-2 margin is at least 0.25, and the soft vote is at least 0.5. It is low when the soft and hard votes disagree or the margin is below 0.10, and medium otherwise. Calibration of the ensemble probabilities (expected calibration error and reliability diagrams, with temperature scaling fitted on validation data [21]) is added in WP4 and fixed before final testing.
 
@@ -267,8 +269,10 @@ The Reviewer Agent checks the rationale against an independent retrieval, using 
 | cited passages that were not provided | warning |
 | past prediction for the same image differs | warning |
 | tester LLM failed, or an override was rejected | warning |
-| image resized (out of distribution) | warning |
-| strongest model is blind to the final class | info |
+| image smaller than the input of every model (out of distribution) | warning |
+| image too small for some models, which do not vote on it | info |
+| image downsampled to a model's input | info |
+| strongest voting model is blind to the final class | info |
 | melanoma in play | info |
 | knowledge base thin on the final class | info |
 
@@ -402,12 +406,12 @@ DermaMNIST is small enough for repeated experiments on standard deep-learning ha
 | Web platform (prediction, training campaigns, explainability windows) | Implemented and verified |
 | Classifiers: FPViT and three CNNs at 28 px; FPViT at 224 px | Implemented; 2 of 6 ablation runs at 224 px on DermaMNIST-C completed (pretrained, seeds 42 and 43); scratch runs and seed 44 open |
 | Metrics (accuracy, macro-F1, balanced accuracy, macro AUROC, per-class, confusion matrix) | Implemented |
-| Promotion gate and promotion registry | Implemented on the official 28 px split; C-val and 224 px support open |
+| Promotion gate and promotion registry | Implemented on the common DermaMNIST-C validation set for 28 and 224 px models, with a command-line gate for runs trained outside the agent |
 | Isolated test function with external E test | Implemented for single checkpoints; common-test comparison of all models with bootstrap intervals implemented in the evaluation notebook; frozen-ensemble test open |
 | Full training campaign with a real LLM up to promotion | Open |
 | Calibration, ensemble freeze manifest, XAI attribution | Open (WP4, WP5) |
 
-The current ensemble reaches a validation balanced accuracy of about 0.50. In a verified deterministic campaign, the Training Agent raised a ResNet-18 from 0.396 to 0.505 validation balanced accuracy.
+On 2026-09-29 the ensemble moved to the common DermaMNIST-C validation set. `probe` and `smoke`, two test runs of one and two epochs, were removed from it, and the 224 px FPViT with seed 42 was promoted through the gate with human approval. The ensemble's balanced accuracy on DermaMNIST-C val rose from 0.607 to 0.798. The second seed, 43, did not pass the gate with seed 42 already in the ensemble (−0.029) and was not promoted. In an earlier verified deterministic campaign, the Training Agent raised a ResNet-18 from 0.396 to 0.505 validation balanced accuracy.
 
 **Preliminary scores on the common test set.** All available models were scored on the DermaMNIST-E test split (ISIC 2018, 1,511 images). This split shares no image with HAM10000, so it is leakage-free for every model in the project, including those trained on the official split. Brackets give 95 % bootstrap intervals (1,000 resamples, shared across models).
 
@@ -416,12 +420,13 @@ The current ensemble reaches a validation balanced accuracy of about 0.50. In a 
 | **FPViT 224 px ensemble** (pretrained, seeds 42 and 43) | 224 px, DermaMNIST-C | **0.802** [0.783, 0.821] | **0.691** [0.648, 0.728] | **0.961** [0.954, 0.967] |
 | FPViT 224 px, pretrained, seed 42 | 224 px, DermaMNIST-C | 0.784 [0.761, 0.803] | 0.663 [0.615, 0.699] | 0.956 [0.949, 0.963] |
 | FPViT 224 px, pretrained, seed 43 | 224 px, DermaMNIST-C | 0.782 [0.761, 0.801] | 0.669 [0.623, 0.703] | 0.953 [0.946, 0.961] |
-| Current Testing Agent ensemble (soft vote of `baseline_paper`, `probe`, `smoke`, and a one-epoch class-weighted FPViT run) | 28 px, official split | 0.628 [0.604, 0.653] | 0.373 [0.338, 0.407] | 0.873 [0.859, 0.885] |
+| Testing Agent ensemble after the 2026-09-29 promotion (`baseline_paper`, a one-epoch class-weighted FPViT run, and FPViT 224 px seed 42) | 28 and 224 px | 0.783 [0.761, 0.803] | 0.690 [0.648, 0.723] | 0.948 [0.940, 0.956] |
+| Testing Agent ensemble before that date (`baseline_paper`, `probe`, `smoke`, and the one-epoch run) | 28 px, official split | 0.628 [0.604, 0.653] | 0.373 [0.338, 0.407] | 0.873 [0.859, 0.885] |
 | `baseline_paper` | 28 px, official split | 0.609 [0.584, 0.634] | 0.408 [0.374, 0.440] | 0.881 [0.869, 0.892] |
 | `probe` (FPViT, 2-epoch run that measured training time per epoch) | 28 px, official split | 0.619 [0.595, 0.645] | 0.183 [0.163, 0.204] | 0.841 [0.825, 0.854] |
 | `smoke` (FPViT, 1-epoch smoke test of the training pipeline) | 28 px, official split | 0.611 [0.587, 0.636] | 0.154 [0.140, 0.168] | 0.802 [0.786, 0.818] |
 
-The 224 px ensemble exceeds the current ensemble on all three metrics, with paired bootstrap intervals that exclude zero. The ranking is the same on the DermaMNIST-C test split (1,227 images, accuracy 0.901 against 0.808). `probe` and `smoke` reach an accuracy close to that of `baseline_paper` with a macro-F1 below 0.2, because they predict almost only nevi: this is why accuracy is never a selection metric. The weakest point of the 224 px ensemble is melanoma: on the external test, 26 % of melanomas are predicted as nevi, against 12 % for `baseline_paper`. These scores are a preliminary measurement taken before the ensemble freeze. Under R4 they are not used for any selection decision, and they do not replace the final test report (D6.3).
+The 224 px ensemble exceeds the previous Testing Agent ensemble on all three metrics, with paired bootstrap intervals that exclude zero. The ranking is the same on the DermaMNIST-C test split (1,227 images, accuracy 0.901 against 0.808). `probe` and `smoke` reach an accuracy close to that of `baseline_paper` with a macro-F1 below 0.2, because they predict almost only nevi: this is why accuracy is never a selection metric. The weakest point of the 224 px ensemble is melanoma: on the external test, 26 % of melanomas are predicted as nevi, against 12 % for `baseline_paper`. The ensemble after the promotion was scored on 224 px test images; its composition was decided on validation by the gate, before this measurement. These scores are a preliminary measurement taken before the ensemble freeze. Under R4 they are not used for any selection decision, and they do not replace the final test report (D6.3).
 
 ## 8. Expected Results
 

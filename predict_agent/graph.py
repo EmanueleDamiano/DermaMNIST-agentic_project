@@ -49,8 +49,50 @@ from predict_agent.voting import vote_one
 
 AGENT_NAME = "derma_predictor"
 
-DISCLAIMER = ("Research prototype trained on 28x28 DermaMNIST images: not a "
-              "diagnosis, and not a substitute for a dermatologist's examination.")
+DISCLAIMER = ("Research prototype trained on low-resolution dermoscopic images (DermaMNIST, "
+              "28x28 and 224x224): not a diagnosis, and not a substitute for a dermatologist's "
+              "examination.")
+
+
+def resize_info(size: list[int], cards: dict) -> dict:
+    """How each input-size group of the ensemble sees an image of `size`, and
+    which models therefore sit out the vote on it.
+
+    Every model resizes the image to its own input (28 or 224 px).
+    Downsampling is how the dataset itself was built from the originals, so it
+    is only noted. Upsampling is not: measured on the DermaMNIST-C test, the
+    224 px models shown 28 px images upsampled to 224 predict "nevus" for 95 %
+    of them (balanced accuracy 0.21-0.27), and with their high vote weight
+    they drag the whole ensemble down from 0.53 to 0.28. So a model that would
+    have to upsample the image does not vote on it - unless every model would,
+    in which case all vote and the image is flagged as out of distribution.
+    """
+    w, h = size
+    by_size: dict[int, list[str]] = {}
+    for card in cards.values():
+        by_size.setdefault(card.input_size, []).append(card.name)
+    up, down, notes = [], [], []
+    for s, names in sorted(by_size.items()):
+        if [w, h] == [s, s]:
+            continue
+        if max(w, h) < s:
+            up += names
+        else:
+            down += names
+            notes.append(f"downsampled from {w}x{h} to {s}x{s} for {', '.join(names)}, "
+                         "as the dataset images were")
+    all_up = bool(up) and len(up) == len(cards)
+    excluded = [] if all_up else up
+    if excluded:
+        notes.append(f"{w}x{h} is below the {', '.join(sorted({f'{cards[n].input_size}x{cards[n].input_size}' for n in excluded}))} "
+                     f"input of {', '.join(excluded)}: upsampled, it would show them less detail than "
+                     "they were trained on, so they do not vote on this image")
+    elif all_up:
+        notes.append(f"{w}x{h} is below the input of every model: all of them see it upsampled, "
+                     "out of distribution for the whole ensemble")
+    return {"resized": bool(up or down), "upsampled_for": up, "downsampled_for": down,
+            "excluded_from_vote": excluded, "all_upsampled": all_up,
+            "resize_note": "; ".join(notes)}
 
 
 class PredictorState(TypedDict, total=False):
@@ -60,7 +102,7 @@ class PredictorState(TypedDict, total=False):
     image_paths: list[str]
     request: str                     # optional free text: what the caller wants
     # --- filled by the nodes -----------------------------------------------
-    images: list[dict]               # file, path, sha256, original_size, resized
+    images: list[dict]               # file, path, sha256, original_size, resize_info()
     past: dict[str, list[dict]]      # sha256 -> past records (deterministic memory)
     log_stats: dict
     models: list[dict]               # public ModelCards of the ensemble
@@ -170,6 +212,7 @@ def build_reason_payload(state: dict) -> dict:
         "images": [{
             "file": img["file"],
             "resized_from": img["original_size"] if img["resized"] else None,
+            "resize_note": img.get("resize_note", ""),
             "vote": vote_,
             "past": state["past"].get(img["sha256"], []),
             "knowledge": [{k: c[k] for k in ("chunk_id", "about_class", "citation", "text")}
@@ -269,7 +312,7 @@ def build_predictor_graph(zoo: ModelZoo,
                 size = list(im.size)
             images.append({"file": p.name, "path": str(p.resolve()),
                            "sha256": sha256_of(p), "original_size": size,
-                           "resized": size != [28, 28]})
+                           **resize_info(size, zoo.cards)})
         return {"images": images, "request": request, "error": ""}
 
     def recall_memory(state: PredictorState) -> dict:
@@ -283,13 +326,17 @@ def build_predictor_graph(zoo: ModelZoo,
             return {"error": f"no usable checkpoint under {[str(r) for r in zoo.roots]}"
                              + (f" (skipped: {zoo.skipped})" if zoo.skipped else "")}
         preds = zoo.predict([Path(img["path"]) for img in state["images"]])
-        return {"predictions": preds,
+        # Recomputed against the refreshed ensemble: a promotion since the
+        # images were loaded may have added a model at another input size.
+        images = [{**img, **resize_info(img["original_size"], zoo.cards)} for img in state["images"]]
+        return {"predictions": preds, "images": images,
                 "models": [c.public() for c in zoo.cards.values()]}
 
     def vote(state: PredictorState) -> dict:
         preds = state["predictions"]
-        votes = [vote_one({m: preds[m][i] for m in preds}, zoo.cards)
-                 for i in range(len(state["images"]))]
+        votes = [vote_one({m: preds[m][i] for m in preds
+                           if m not in img.get("excluded_from_vote", [])}, zoo.cards)
+                 for i, img in enumerate(state["images"])]
         return {"votes": votes}
 
     def retrieve_knowledge(state: PredictorState) -> dict:
@@ -352,6 +399,9 @@ def build_predictor_graph(zoo: ModelZoo,
                              "url": valid_chunks[cid]["url"]}
                             for cid in d.get("knowledge_used", []) if cid in valid_chunks],
                 "resized_from": img["original_size"] if img["resized"] else None,
+                "resize_note": img.get("resize_note", ""),
+                "excluded_from_vote": img.get("excluded_from_vote", []),
+                "all_upsampled": img.get("all_upsampled", False),
                 "past_predictions": state["past"].get(img["sha256"], []),
             })
 
@@ -375,6 +425,7 @@ def build_predictor_graph(zoo: ModelZoo,
                 "file": f["file"], "path": f["path"], "sha256": f["sha256"],
                 "models": models,
                 "per_model_probabilities": {m: [round(p, 5) for p in preds[m][i]] for m in preds},
+                "excluded_from_vote": f.get("excluded_from_vote", []),
                 "vote_class": v["vote_class"], "vote_probability": v["vote_probability"],
                 "margin": v["margin"],
                 "final_class": f["final_class"], "confidence_level": f["confidence_level"],
@@ -432,8 +483,8 @@ def _render_report(final: list[dict], models: list[dict], summary: str,
             prev = f["past_predictions"][0]
             lines.append(f"  previously ({prev['timestamp']}): {prev['final_class']}")
         if f["resized_from"]:
-            lines.append(f"  warning: resized from {f['resized_from']} to 28x28 - "
-                         "out of distribution for these models")
+            kind = "warning" if f.get("all_upsampled") else "note"
+            lines.append(f"  {kind}: image {f.get('resize_note') or 'resized'}")
         if f["sources"]:
             lines.append("  sources: " + "; ".join(s["citation"] for s in f["sources"]))
         lines.append("")

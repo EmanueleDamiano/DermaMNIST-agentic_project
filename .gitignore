@@ -25,3 +25,4 @@ runs test solo training pyramid/*
 !runs test solo training pyramid/baseline_paper/
 runs test solo training pyramid/baseline_paper/*
 !runs test solo training pyramid/baseline_paper/best_model.pt
+!runs test solo training pyramid/baseline_paper/val_dermamnist_c.json

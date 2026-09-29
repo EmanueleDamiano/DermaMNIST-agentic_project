@@ -42,7 +42,7 @@ python -m train_agent --arch resnet18 --trials 3 --no-llm # training campaign, d
 
 DermaMNIST is downloaded by `medmnist` on first use (`~/.medmnist/`). LLMs are addressed as `provider:model`: Ollama locally (`ollama:qwen3.6`), Anthropic with `ANTHROPIC_API_KEY`, or OpenRouter with `OPENROUTER_API_KEY`.
 
-**One model ships with the repository**: `baseline_paper` (FPViT with the paper's hyperparameters, validation balanced accuracy 0.533, 65 MB), so a fresh clone runs the whole system. The testing agent loads every `*/best_model.pt` it finds under `runs/`, `runs_agent/`, `runs test solo training pyramid/` and `models_promoted/`. Each checkpoint carries its own config and validation metrics, so adding a model to the ensemble means dropping its folder there. To train more:
+**One model ships with the repository**: `baseline_paper` (FPViT with the paper's hyperparameters, 65 MB), so a fresh clone runs the whole system. The testing agent loads every `*/best_model.pt` it finds under `runs/`, `runs_agent/`, `runs test solo training pyramid/` and `models_promoted/`, except the runs listed in `ensemble_exclusions.json`. Every model is weighted by its metrics on a common validation set, DermaMNIST-C val, measured at its own input size (28 or 224 px) and cached next to the checkpoint in `val_dermamnist_c.json`. A model does not vote on an image smaller than its own input. Models trained outside the training agent, for example on Colab, enter through the same promotion gate: `python -m train_agent.promotion <run folder>`. To train more:
 
 ```bash
 python train.py --out runs/fpvit_run                   # FPViT, paper hyperparameters by default
@@ -62,7 +62,8 @@ simple_agent/     first LangGraph agent; its build_llm is reused by the agents
 corpus.json       clinical knowledge base for the seven classes
 colab/            Colab notebook: FPViT at 224 px on the leakage-free DermaMNIST-C
 legacy_first_agent/   the project's first agent prototype, not used by the system
-test_samples/     one example image per class
+test_samples/     one example image per class (28 px); test_samples_224/: the same at 224 px, from the DermaMNIST-C test
+ensemble_exclusions.json   runs left out of the ensemble, with the reason
 ```
 
 Each package documents its design, the checks it runs and what was verified in its README (the reviewer agent is covered in `orchestrator/README.md`). The FPViT implementation, augmentation, training options and hyperparameters are documented in [`fpvit/README.md`](fpvit/README.md).
@@ -71,7 +72,7 @@ Each package documents its design, the checks it runs and what was verified in i
 
 ## Limitations
 
-DermaMNIST images are 28×28 and the dataset has known duplicates and split leakage [2]. `train.py --dataset dermamnist_c` trains on the lesion-level corrected release of [2], at 28 or 224 px (see `fpvit/README.md`); the agents still use the official split. The classes are strongly imbalanced: melanocytic nevi account for about two thirds of the images, and dermatofibroma and vascular lesions for about 1% each. The current ensemble has a validation balanced accuracy of about 0.50. This is a research project, not a diagnostic tool: its outputs are not medical advice.
+DermaMNIST images are 28×28 and the dataset has known duplicates and split leakage [2]. `train.py --dataset dermamnist_c` trains on the lesion-level corrected release of [2], at 28 or 224 px (see `fpvit/README.md`); the training agent still trains on the official split, while the ensemble is weighted and gated on DermaMNIST-C val. The classes are strongly imbalanced: melanocytic nevi account for about two thirds of the images, and dermatofibroma and vascular lesions for about 1% each. The current ensemble (two 28 px models and one 224 px FPViT) reaches a balanced accuracy of 0.798 on DermaMNIST-C val; on a 28 px image only the 28 px models vote, so the best answers need 224 px images. This is a research project, not a diagnostic tool: its outputs are not medical advice.
 
 ## References
 

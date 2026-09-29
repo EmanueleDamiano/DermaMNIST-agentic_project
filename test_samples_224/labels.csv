@@ -1,0 +1,8 @@
+file,class_id,expected_class,test_index
+01_actinic_keratoses.png,0,actinic keratoses and intraepithelial carcinoma,1192
+02_basal_cell_carcinoma.png,1,basal cell carcinoma,202
+03_benign_keratosis.png,2,benign keratosis-like lesions,0
+04_dermatofibroma.png,3,dermatofibroma,106
+05_melanoma.png,4,melanoma,115
+06_melanocytic_nevi.png,5,melanocytic nevi,1
+07_vascular_lesion.png,6,vascular lesions,185

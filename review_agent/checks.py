@@ -50,12 +50,16 @@ def decisive_model(final: dict, vote: dict, predictions: dict, idx: int,
     """
     cls = final["final_class_id"]
     cards = {m["name"]: m for m in models}
-    parts = {name: cards[name]["skill"] * probs[idx][cls] for name, probs in predictions.items()}
+    # Only the models that voted on this image: a model can sit out an image
+    # it would have to upsample (predict_agent.graph.resize_info).
+    voters = {op["model"] for op in vote["per_model"]}
+    parts = {name: cards[name]["skill"] * probs[idx][cls] for name, probs in predictions.items()
+             if name in voters}
     total = sum(parts.values()) or 1.0
     ranked = sorted(parts, key=parts.get, reverse=True)
     top = ranked[0]
     opinion = next(op for op in vote["per_model"] if op["model"] == top)
-    strongest = max(models, key=lambda m: m["skill"])
+    strongest = max((m for m in models if m["name"] in voters), key=lambda m: m["skill"])
     strongest_op = next(op for op in vote["per_model"] if op["model"] == strongest["name"])
     return {
         "model": top,
@@ -80,12 +84,13 @@ def run_checks(test: dict, reviewer_kb: list[list[dict]]) -> list[list[dict]]:
     """One list of findings per image, aligned with test['final']."""
     raw_by_file = {d["file"]: d for d in (test.get("llm_output") or {}).get("decisions", [])}
     rejected = {r["file"] for r in test.get("rejected_overrides", [])}
-    strongest = max(test["models"], key=lambda m: m["skill"])
     out = []
 
     for i, (f, v, ev) in enumerate(zip(test["final"], test["votes"], test["evidence"])):
         file, found = f["file"], []
         cls = f["final_class_id"]
+        voters = {op["model"] for op in v["per_model"]}
+        strongest = max((m for m in test["models"] if m["name"] in voters), key=lambda m: m["skill"])
 
         if test.get("llm_error"):
             found.append(_finding(file, "warning", "pipeline_error",
@@ -148,10 +153,21 @@ def run_checks(test: dict, reviewer_kb: list[list[dict]]) -> list[list[dict]]:
             found.append(_finding(file, "info", "model_reliability",
                                   f"The strongest model ({strongest['name']}) never recognises this "
                                   "class on validation: the prediction rests on the weaker models."))
-        if f.get("resized_from"):
+        if f.get("all_upsampled"):
             found.append(_finding(file, "warning", "input_quality",
-                                  f"Image resized from {f['resized_from']} to 28x28: out of "
-                                  "distribution with respect to training."))
+                                  f"Image {f['resized_from'][0]}x{f['resized_from'][1]} is smaller than the "
+                                  "input of every model: all votes are out of distribution.",
+                                  f.get("resize_note", "")))
+        elif f.get("excluded_from_vote"):
+            found.append(_finding(file, "info", "input_quality",
+                                  f"Image {f['resized_from'][0]}x{f['resized_from'][1]} is too small for "
+                                  f"{', '.join(f['excluded_from_vote'])}, which did not vote: the decision "
+                                  "rests on the lower-resolution models only.",
+                                  f.get("resize_note", "")))
+        elif f.get("resized_from"):
+            found.append(_finding(file, "info", "input_quality",
+                                  f"Image {f['resized_from'][0]}x{f['resized_from'][1]} is resized to "
+                                  "the models' inputs.", f.get("resize_note", "")))
 
         best_kb = max((c["score"] for c in reviewer_kb[i]
                        if c.get("about_class") == CLASS_NAMES[cls]), default=0.0)

@@ -54,7 +54,7 @@ graph TD
 | `train` | codice (`runner.py`) | un segmento di `train.py`; si ferma da solo al plateau: è il **trigger** che risveglia l'agente. Le epoche escono nello stream (`custom`) |
 | `analyse` | **LLM** + KB | cosa è successo, sopra i **fatti calcolati in codice** (`analysis.py`: gap train/val, plateau, overfitting, classi collassate) che l'LLM non può contraddire |
 | `decide` | codice | numero di run, budget, obiettivo, errori ripetuti |
-| `evaluate` | codice (`promotion.py`) | ensemble di previsione **con e senza** il candidato sulla validazione |
+| `evaluate` | codice (`promotion.py`) | ensemble di previsione **con e senza** il candidato sulla validazione comune (DermaMNIST-C val) |
 | `approve_promotion` | **umano, sempre** | promuovere o no |
 | `promote` | codice | copia in `models_promoted/<arch>_<campagna>_<run>/` + registro |
 

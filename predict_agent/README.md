@@ -50,8 +50,27 @@ immagine e stessi checkpoint danno sempre lo stesso voto, con o senza LLM.
 
 ## Il voto
 
-Ogni checkpoint porta con sé le metriche di validazione all'epoca selezionata,
-incluse precision e recall per classe. Il voto le usa:
+Il voto usa le metriche di validazione di ogni modello, incluse precision e
+recall per classe, misurate su un **set di validazione comune**, DermaMNIST-C
+val (573 immagini), ogni modello alla propria risoluzione (28 o 224 px). Le
+metriche salvate nel checkpoint non bastano: un modello a 28 px dello split
+ufficiale è stato validato su un altro insieme, con leakage, rispetto a uno a
+224 px addestrato su C, e i numeri non sarebbero confrontabili.
+`predict_agent/validation.py` calcola le metriche una volta e le mette in cache
+accanto al checkpoint (`val_dermamnist_c.json`, legato allo SHA-256 del
+file). I run elencati in `ensemble_exclusions.json` restano fuori
+dall'ensemble, con il motivo scritto nel file.
+
+**Risoluzione.** Un modello non vota su un'immagine più piccola del suo input.
+Misurato sul test di DermaMNIST-C, un modello a 224 px che riceve immagini a 28
+px ingrandite risponde "nevo" nel 95% dei casi, e con il suo peso alto
+trascinerebbe tutto l'ensemble (balanced accuracy da 0.53 a 0.28). Su
+un'immagine a 28 px votano quindi solo i modelli a 28 px; su un'immagine a 224
+px votano tutti, e i modelli a 28 px la ricevono rimpicciolita, come le
+immagini del dataset. Se l'immagine è più piccola dell'input di *tutti* i
+modelli, votano comunque tutti e il reviewer segnala un warning.
+
+Il voto:
 
 | Vista | Regola | Ruolo |
 | --- | --- | --- |
@@ -187,14 +206,17 @@ tool = as_tool(model="claude-sonnet-5")    # nome: derma_predictor
 
 ## Limiti
 
-- **L'ensemble è debole quanto i suoi modelli.** Oggi sono 4 checkpoint: 3
-  hanno 1–2 epoche (balanced accuracy di val 0.24–0.48) e solo
-  `baseline_paper` è un run vero (0.53). Il peso per skill li ridimensiona,
-  ma un ensemble utile richiede checkpoint migliori. `--min-balanced-acc`
-  permette di escludere quelli deboli.
-- I pesi sono presi dalle metriche di **validazione**, la stessa split usata
-  per selezionare l'epoca, quindi sono un po' ottimistici. Sul test split
-  non si tocca nulla.
-- I modelli lavorano a 28×28. Un'immagine più grande viene ridimensionata e
-  il report avvisa che è fuori distribuzione.
+- **L'ensemble.** Oggi sono 3 checkpoint: `baseline_paper` e
+  `dermamnist_3ep_adamw_inv` a 28 px, e l'FPViT a 224 px pre-addestrato
+  (seed 42), promosso il 2026-09-29. Balanced accuracy su C-val: 0.588, 0.503
+  e 0.756; l'ensemble arriva a 0.798. `probe` e `smoke` (run di prova da 1–2
+  epoche) sono esclusi. `--min-balanced-acc` permette di escludere altri
+  modelli deboli.
+- I pesi vengono dalla **validazione**. Per i modelli dello split ufficiale
+  C-val è un sottoinsieme della validation su cui hanno scelto l'epoca, quindi
+  i loro numeri sono un po' ottimistici; per quelli a 224 px no. Sul test
+  split non si tocca nulla.
+- Su un'immagine a 28 px vota solo la parte a 28 px dell'ensemble, la più
+  debole: per la risposta migliore servono immagini a 224 px
+  (`test_samples_224/` ne contiene una per classe).
 - Nel tool, i path relativi si risolvono rispetto alla directory corrente.

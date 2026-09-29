@@ -5,16 +5,22 @@ Framework-neutral on purpose - no LangGraph / LangChain import here. The graph
 in `graph.py` calls these functions from its nodes; a different orchestration
 framework would call the same ones.
 
-Every `best_model.pt` written by `train.py` already carries what an ensemble
-needs to weigh a model's opinion: its validation metrics at the selected epoch,
-including per-class precision and recall. `ModelCard` reads them once, so the
-voting step can know that e.g. a model with recall 0.0 on dermatofibroma never
-predicts it, and that a model's "melanoma" vote is right X% of the time on val.
+What an ensemble needs to weigh a model's opinion is its validation metrics,
+including per-class precision and recall, so the voting step can know that e.g.
+a model with recall 0.0 on dermatofibroma never predicts it, and that a model's
+"melanoma" vote is right X% of the time on val. `ModelCard` reads them from the
+COMMON validation set, DermaMNIST-C val (see `validation.py`), not from the
+checkpoint's own `val_metrics`: models trained on different splits or at
+different input sizes are only comparable on the same images.
+
+Runs listed in `ensemble_exclusions.json` (project root) are left out, with
+the reason recorded there.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -25,6 +31,7 @@ from PIL import Image
 from fpvit.dataset import eval_transform_for, model_input
 from fpvit.engine import resolve_device
 from fpvit.zoo import build_from_config
+from predict_agent.validation import VALIDATION_SET, validation_record
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -37,6 +44,17 @@ DEFAULT_MODEL_ROOTS = [
     # Candidates still under evaluation live in runs_train/, which is not scanned.
     PROJECT_ROOT / "models_promoted",
 ]
+
+# Run name -> why it is not in the ensemble. Human-edited; the testing agent,
+# the promotion gate and the platform all read it.
+EXCLUSIONS_FILE = PROJECT_ROOT / "ensemble_exclusions.json"
+
+
+def load_exclusions(path: Path = EXCLUSIONS_FILE) -> dict[str, str]:
+    try:
+        return {str(k): str(v) for k, v in json.loads(path.read_text()).items()}
+    except FileNotFoundError:
+        return {}
 
 # Same order as medmnist INFO["dermamnist"]["label"]; hard-coded so that
 # building the zoo does not need medmnist's metadata at import time.
@@ -85,7 +103,11 @@ def collect_images(targets: Iterable[str | Path]) -> list[Path]:
 
 @dataclass
 class ModelCard:
-    """What the ensemble knows about one checkpoint, read from the checkpoint itself."""
+    """What the ensemble knows about one checkpoint.
+
+    The val_* fields are measured on the common validation set (`val_set`),
+    not taken from the checkpoint, so every card is comparable.
+    """
 
     name: str                       # run directory name, unique within the zoo
     path: str
@@ -95,6 +117,9 @@ class ModelCard:
     val_macro_auc: float | None
     val_per_class_precision: list[float]
     val_per_class_recall: list[float]
+    val_set: str = VALIDATION_SET
+    input_size: int = 28            # the model's own input resolution (px)
+    trained_on: str = "dermamnist"
     config: dict = field(default_factory=dict)
 
     @property
@@ -122,17 +147,20 @@ class ModelCard:
         return d
 
 
-def _card_from_checkpoint(path: Path, ckpt: dict, name: str) -> ModelCard:
-    vm = ckpt.get("val_metrics") or {}
+def _card_from_checkpoint(path: Path, ckpt: dict, name: str, val: dict) -> ModelCard:
+    vm = val["metrics"]
     return ModelCard(
         name=name,
         path=str(path),
         epoch=ckpt.get("epoch"),
         selection_metric=ckpt.get("selection_metric"),
-        val_balanced_acc=float(vm.get("balanced_acc", CHANCE_BALANCED_ACC)),
-        val_macro_auc=float(vm["macro_auc"]) if "macro_auc" in vm else None,
-        val_per_class_precision=[float(x) for x in vm.get("per_class_precision", [0.0] * NUM_CLASSES)],
-        val_per_class_recall=[float(x) for x in vm.get("per_class_recall", [0.0] * NUM_CLASSES)],
+        val_balanced_acc=float(vm["balanced_acc"]),
+        val_macro_auc=vm.get("macro_auc"),
+        val_per_class_precision=[float(x) for x in vm["per_class_precision"]],
+        val_per_class_recall=[float(x) for x in vm["per_class_recall"]],
+        val_set=val["validation_set"],
+        input_size=int(val["img_size"]),
+        trained_on=val["trained_on"],
         config=dict(ckpt.get("config") or {}),
     )
 
@@ -147,11 +175,15 @@ class ModelZoo:
     def __init__(self, roots: Iterable[str | Path] | None = None,
                  device: str = "auto",
                  min_balanced_acc: float = 0.0,
-                 exclude: Iterable[str] = ()):
+                 exclude: Iterable[str] = (),
+                 exclusions: dict[str, str] | None = None):
+        """exclude: extra run names to leave out; exclusions: name -> reason,
+        default read from ensemble_exclusions.json."""
         self.roots = [Path(r) for r in (roots or DEFAULT_MODEL_ROOTS)]
         self.device = resolve_device(device)
         self.min_balanced_acc = min_balanced_acc
-        self.exclude = set(exclude)
+        self.exclusions = load_exclusions() if exclusions is None else dict(exclusions)
+        self.exclusions.update({n: "excluded by the caller" for n in exclude})
         self._models: dict[str, torch.nn.Module] = {}
         self.cards: dict[str, ModelCard] = {}
         self.skipped: list[dict] = []
@@ -168,15 +200,21 @@ class ModelZoo:
                 name = path.parent.name
                 if name in self.cards:                 # same run name in two roots
                     name = f"{root.name}/{name}"
-                if name in self.exclude or path.parent.name in self.exclude:
-                    self.skipped.append({"name": name, "reason": "excluded"})
+                reason = self.exclusions.get(name) or self.exclusions.get(path.parent.name)
+                if reason:
+                    self.skipped.append({"name": name, "reason": f"excluded: {reason}"})
                     continue
                 try:
                     ckpt = torch.load(path, map_location="cpu", weights_only=False)
                 except Exception as exc:              # a half-written checkpoint
                     self.skipped.append({"name": name, "reason": f"unreadable: {exc}"})
                     continue
-                card = _card_from_checkpoint(path, ckpt, name)
+                try:
+                    val = validation_record(path, self.device, ckpt)
+                except Exception as exc:              # E-trained, or C-val unavailable
+                    self.skipped.append({"name": name, "reason": f"no common validation: {exc}"})
+                    continue
+                card = _card_from_checkpoint(path, ckpt, name, val)
                 if card.val_balanced_acc < self.min_balanced_acc:
                     self.skipped.append({"name": name,
                                          "reason": f"val balanced_acc {card.val_balanced_acc:.3f} "
