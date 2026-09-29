@@ -400,14 +400,28 @@ DermaMNIST is small enough for repeated experiments on standard deep-learning ha
 | --- | --- |
 | Orchestrator, Testing, Reviewer, and Training Agents with human interrupts | Implemented and verified end to end with the deterministic policy and with a local LLM |
 | Web platform (prediction, training campaigns, explainability windows) | Implemented and verified |
-| Classifiers: FPViT and three CNNs at 28 px; FPViT at 224 px | Implemented; 224 px training on DermaMNIST-C prepared, not yet run |
+| Classifiers: FPViT and three CNNs at 28 px; FPViT at 224 px | Implemented; 2 of 6 ablation runs at 224 px on DermaMNIST-C completed (pretrained, seeds 42 and 43); scratch runs and seed 44 open |
 | Metrics (accuracy, macro-F1, balanced accuracy, macro AUROC, per-class, confusion matrix) | Implemented |
 | Promotion gate and promotion registry | Implemented on the official 28 px split; C-val and 224 px support open |
-| Isolated test function with external E test | Implemented for single checkpoints; ensemble-level test open |
+| Isolated test function with external E test | Implemented for single checkpoints; common-test comparison of all models with bootstrap intervals implemented in the evaluation notebook; frozen-ensemble test open |
 | Full training campaign with a real LLM up to promotion | Open |
 | Calibration, ensemble freeze manifest, XAI attribution | Open (WP4, WP5) |
 
 The current ensemble reaches a validation balanced accuracy of about 0.50. In a verified deterministic campaign, the Training Agent raised a ResNet-18 from 0.396 to 0.505 validation balanced accuracy.
+
+**Preliminary scores on the common test set.** All available models were scored on the DermaMNIST-E test split (ISIC 2018, 1,511 images). This split shares no image with HAM10000, so it is leakage-free for every model in the project, including those trained on the official split. Brackets give 95 % bootstrap intervals (1,000 resamples, shared across models).
+
+| Model | Input and training data | Accuracy | Macro-F1 | Macro-AUROC |
+| --- | --- | --- | --- | --- |
+| **FPViT 224 px ensemble** (pretrained, seeds 42 and 43) | 224 px, DermaMNIST-C | **0.802** [0.783, 0.821] | **0.691** [0.648, 0.728] | **0.961** [0.954, 0.967] |
+| FPViT 224 px, pretrained, seed 42 | 224 px, DermaMNIST-C | 0.784 [0.761, 0.803] | 0.663 [0.615, 0.699] | 0.956 [0.949, 0.963] |
+| FPViT 224 px, pretrained, seed 43 | 224 px, DermaMNIST-C | 0.782 [0.761, 0.801] | 0.669 [0.623, 0.703] | 0.953 [0.946, 0.961] |
+| Current Testing Agent ensemble (soft vote of `baseline_paper`, `probe`, `smoke`, and a one-epoch class-weighted FPViT run) | 28 px, official split | 0.628 [0.604, 0.653] | 0.373 [0.338, 0.407] | 0.873 [0.859, 0.885] |
+| `baseline_paper` | 28 px, official split | 0.609 [0.584, 0.634] | 0.408 [0.374, 0.440] | 0.881 [0.869, 0.892] |
+| `probe` (FPViT, 2-epoch run that measured training time per epoch) | 28 px, official split | 0.619 [0.595, 0.645] | 0.183 [0.163, 0.204] | 0.841 [0.825, 0.854] |
+| `smoke` (FPViT, 1-epoch smoke test of the training pipeline) | 28 px, official split | 0.611 [0.587, 0.636] | 0.154 [0.140, 0.168] | 0.802 [0.786, 0.818] |
+
+The 224 px ensemble exceeds the current ensemble on all three metrics, with paired bootstrap intervals that exclude zero. The ranking is the same on the DermaMNIST-C test split (1,227 images, accuracy 0.901 against 0.808). `probe` and `smoke` reach an accuracy close to that of `baseline_paper` with a macro-F1 below 0.2, because they predict almost only nevi: this is why accuracy is never a selection metric. The weakest point of the 224 px ensemble is melanoma: on the external test, 26 % of melanomas are predicted as nevi, against 12 % for `baseline_paper`. These scores are a preliminary measurement taken before the ensemble freeze. Under R4 they are not used for any selection decision, and they do not replace the final test report (D6.3).
 
 ## 8. Expected Results
 
