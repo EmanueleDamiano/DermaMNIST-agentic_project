@@ -21,3 +21,12 @@ database/dermamnist/
 # checkpoints are large: only the shipped baseline is kept
 *.pt
 !model/baseline/baseline_paper/best_model.pt
+
+# local training runs and models (large, local to this machine)
+trained_models/
+trained_models_224/
+runs test solo training pyramid/
+runs_agent/
+runs_predict/
+runs_train/
+legacy_model_training_and_testing/
