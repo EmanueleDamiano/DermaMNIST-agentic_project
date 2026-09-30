@@ -69,7 +69,7 @@ The project uses three roles. The Project Manager coordinates scope, work packag
 
 ### 2.1 Abstract
 
-DermaMNIST provides a compact benchmark for seven-class dermoscopic image classification, but reliable results depend on data integrity, class-balanced evaluation, reproducibility, and clear separation between model evidence and generated explanation. This project develops an end-to-end multi-agent system in which an Orchestrator routes each request to specialized LangGraph agents: a Testing Agent that classifies images with a validated model ensemble, a Reviewer Agent that audits every prediction, and a Training Agent that plans, runs, and proposes new models. The system follows one rule throughout: numbers come from code, language comes from the LLM. Deterministic functions compute data processing, classifier inference, ensemble votes, metrics, training diagnoses, and promotion scores before any language model writes text, and deterministic checks reject claims the evidence does not support. A human stays in the loop at every decision that should not be taken silently: training plans, out-of-policy training runs, model promotion, and review findings. New models join the ensemble only when they improve it on validation data and a human approves. Medical context is retrieved only after the vote and is linked to cited sources. The final system is evaluated through split-integrity checks, macro and per-class metrics, calibration, isolated and external testing, grounding checks, and independent review, producing a traceable DermaMNIST research prototype.
+DermaMNIST provides a compact benchmark for seven-class dermoscopic image classification, but reliable results depend on data integrity, class-balanced evaluation, reproducibility, and clear separation between model evidence and generated explanation. This project develops an end-to-end multi-agent system in which an Orchestrator routes each request to specialized LangGraph agents: a Testing Agent that classifies images with a validated model ensemble, a Reviewer Agent that audits every prediction, a Training Agent that plans, runs, and proposes new models, and a Models Agent that answers questions about the available models from their validation metrics. The system follows one rule throughout: numbers come from code, language comes from the LLM. Deterministic functions compute data processing, classifier inference, ensemble votes, metrics, training diagnoses, and promotion scores before any language model writes text, and deterministic checks reject claims the evidence does not support. A human stays in the loop at every decision that should not be taken silently: training plans, out-of-policy training runs, model promotion, and review findings. New models join the ensemble only when they improve it on validation data and a human approves. Medical context is retrieved only after the vote and is linked to cited sources. The final system is evaluated through split-integrity checks, macro and per-class metrics, calibration, isolated and external testing, grounding checks, and independent review, producing a traceable DermaMNIST research prototype.
 
 ### 2.2 Problem
 
@@ -125,7 +125,7 @@ The system uses specialized agents built as LangGraph graphs, connected through 
 
 | Agent | Task | Main inputs | Output |
 | --- | --- | --- | --- |
-| **Orchestrator** | Route each request and surface the other agents' interrupts to the human | User request, images, platform settings | Route (predict, train, models, clarify), final report, review log entry |
+| **Orchestrator** | Route each request and surface the other agents' interrupts to the human | User request, images, platform settings | Route (predict, train, models, question, clarify), final report, review log entry |
 | **Testing Agent** | Classify one or more images with every model of the ensemble and decide the final class | Images, ensemble checkpoints with their validation metrics, execution log, clinical knowledge base | Per-image vote, final class, confidence, cited rationale, execution ID |
 | **Reviewer Agent** | Check the Testing Agent's full trace for consistency with the evidence | Tester trace and decisions, independent retrieval, deterministic checks | Per-image verdict, findings with severity, decisive model, summary for the user |
 | **Training Agent** | Plan a training campaign, propose and run each training segment, diagnose curves, and propose promotion | Request and constraints, past runs and campaigns, ensemble state, training knowledge base | Campaign record, run checkpoints, promotion evaluation, promoted model |
@@ -136,24 +136,24 @@ The six functional roles of the original design are all covered, but four of the
 
 | Functional role | Implementation |
 | --- | --- |
-| Training | Training Agent (`train_agent/`) |
-| Evaluation and selection | Promotion gate of the Training Agent (`promotion.py`): the ensemble is scored with and without the candidate on the common validation set (DermaMNIST-C val); `fpvit/engine.evaluate()` computes the metrics |
+| Training | Training Agent (`system/trainer/`) |
+| Evaluation and selection | Promotion gate of the Training Agent (`system/trainer/promotion.py`): the ensemble is scored with and without the candidate on the common validation set (DermaMNIST-C val); `system/nets/engine.py` (`evaluate()`) computes the metrics |
 | Enrichment | Retrieval node of the Testing Agent, plus an independent retrieval in the Reviewer Agent |
 | Explanation | Reasoning node of the Testing Agent, plus the Reviewer Agent's summary and decisive-model explanation |
-| Isolated testing | `evaluate_test.py`, a separate manual function that only loads the test split, run once on the frozen package (WP6) |
+| Isolated testing | `system/evaluate.py` (`python run.py evaluate`, or `/evaluate` on the platform), a separate manual function that only loads the test split, run once on the frozen package (WP6) |
 | Review | Reviewer Agent for every prediction, training reviewer for every training proposal, human Reviewer for project acceptance |
 
 Permission boundaries are enforced in code:
 
 - The Training Agent and the promotion gate read only the validation arrays of the dataset. The test split is never loaded by any agent.
 - A training proposal is validated in code (bounds, optimizer-specific learning rates, admissible augmentation, no repeated configuration) before it can run. An autonomy gate (supervised, guarded by default, autonomous) decides which proposals need a human. The plan and every promotion always need one.
-- Models are never overwritten. Each run writes to a new folder, and promotion copies the checkpoint under a new name into `models_promoted/`, the only folder of new models the Testing Agent reads.
+- Models are never overwritten. Each run writes to a new folder, and promotion copies the checkpoint under a new name into `model/promoted/`. The Testing Agent reads the shipped baseline, the promoted models, and manual runs; the candidates of a training campaign are never read before promotion.
 - The Testing Agent's language model can change the voted class only to a class the ensemble supports (at least 0.15 soft-vote probability, or voted by at least one model). Any other override is rejected by code. Every override is logged and raised by the Reviewer Agent as a warning.
 - The Reviewer Agent cannot reclassify an image and cannot contradict the deterministic checks. With no human available, an escalated decision is recorded as rejected, never as accepted.
 
 ### 4.2 Architecture
 
-The four agents are independent compiled graphs; each can also run on its own from the command line. The Orchestrator runs the others as subgraphs, and their `interrupt()` calls reach the human through the Orchestrator and resume with the human's decision.
+The five agents are independent compiled graphs; each can also run on its own from the command line or from Python. The Orchestrator runs the others as subgraphs, and their `interrupt()` calls reach the human through the Orchestrator and resume with the human's decision.
 
 ```mermaid
 graph TD
@@ -162,34 +162,40 @@ graph TD
   R -- issues --> H{{human}}
   O -- training request --> TR[Training agent]
   TR -- plan / proposals / promotion --> H
+  O -- question about the models --> M[Models agent]
+  O -- other question --> A[answer from the system state]
   O -- unclear --> H
   TR -. promoted models .-> T
 ```
 
 *Figure 1. General process graph of the multi-agent system (LangGraph).*
 
-At node level, the Orchestrator routes deterministically when the request carries images or an explicit mode, and otherwise reads the request with a structured-output LLM (intent plus training constraints). When the intent is unclear it asks instead of guessing.
+At node level, the Orchestrator routes deterministically when the request carries images or an explicit mode, and otherwise reads the request with a structured-output LLM (intent plus training constraints). A question about the models goes to the Models Agent; any other question is answered by the `explain` node from the system state and the latest result. When the intent is unclear it asks instead of guessing.
 
 ```mermaid
 graph TD
   START --> route
   route -- "images / predict mode" --> tester["tester (Testing agent)"]
   route -- "training request" --> trainer["trainer (Training agent)"]
+  route -- "question about the models" --> inspector["inspector (Models agent)"]
+  route -- "other question" --> explain
   route -- "unclear" --> clarify["clarify (interrupt)"]
   route -- "prediction without images" --> answer
-  clarify --> tester & trainer & answer
+  clarify --> tester & trainer & inspector & explain & answer
   tester -- error --> END
   tester -- ok --> reviewer["reviewer (Reviewer agent)"]
   reviewer -- "issues + human confirmation on" --> human_review["human_review (interrupt)"]
   reviewer -- otherwise --> finalize
   human_review --> finalize --> END
   trainer --> END
+  inspector --> END
+  explain --> END
   answer --> END
 ```
 
-*Figure 2. Orchestrator graph with the Testing, Reviewer, and Training Agents as subgraphs.*
+*Figure 2. Orchestrator graph with the Testing, Reviewer, Training, and Models Agents as subgraphs.*
 
-The Testing Agent runs `load_inputs → recall_memory → run_models → vote → retrieve_knowledge → reason → write_log`, and the Reviewer Agent runs `gather → review → render`. The Training Agent is the only agent that loops, and it contains the human approval points of the training workflow:
+The Testing Agent runs `load_inputs → recall_memory → run_models → vote → retrieve_knowledge → reason → write_log`, the Reviewer Agent runs `gather → review → render`, and the Models Agent runs `collect_facts → explain → check_claims`: it computes the facts of every model from validation data only, lets the language model answer from them, and rejects in code any figure or run name that is not in the facts. It is read-only and never interrupts. The Training Agent is the only agent that loops, and it contains the human approval points of the training workflow:
 
 ```mermaid
 graph TD
@@ -242,7 +248,7 @@ The Testing Agent combines every available checkpoint instead of relying on one 
 
 All three views use each model's metrics on the common validation set, DermaMNIST-C val, measured at the model's own input size, so that models trained on different splits and at different resolutions are weighted on the same images. A model does not vote on an image smaller than its own input: shown 28 px images upsampled to 224 px, the 224 px models predict nevus for 95 % of the DermaMNIST-C test images and, with their high weight, would lower the ensemble's balanced accuracy from 0.53 to 0.28. On a 28 px image only the 28 px models vote; on a 224 px image all models vote, and the 28 px models receive it downsampled, as the dataset images were.
 
-A new model enters the ensemble only through the promotion gate (Section 4.4) and a human approval, and a run is removed from it only by a human, with the reason recorded in `ensemble_exclusions.json`. One model ships with the repository, `baseline_paper` (FPViT with the reference hyperparameters, balanced accuracy 0.588 on DermaMNIST-C val), so a fresh clone runs the whole system.
+A new model enters the ensemble only through the promotion gate (Section 4.4) and a human approval, and a run is removed from it only by a human, with the reason recorded in `model/ensemble_exclusions.json`. One model ships with the repository, `baseline_paper` (FPViT with the reference hyperparameters, balanced accuracy 0.588 on DermaMNIST-C val), so a fresh clone runs the whole system.
 
 ### 4.4 Evaluation
 
@@ -256,7 +262,7 @@ Before final testing, the ensemble is frozen in a manifest that lists every memb
 
 ### 4.5 Explanation and Enrichment
 
-The ensemble produces the vote and the probability vector. The Testing Agent then retrieves class information from a curated knowledge base of 120 passages from StatPearls and PubMed (TF-IDF over unigrams and bigrams, with class-specific query expansion) for the two leading classes and their differential diagnosis. A language model combines the vote, the execution memory (past predictions of the same image, found by SHA-256), and the retrieved passages into the final decision and rationale. The language model never sees the image: the knowledge base describes conditions, not the image. A rationale that claims to see an image feature is flagged as a critical finding.
+The ensemble produces the vote and the probability vector. The Testing Agent then retrieves class information from a curated knowledge base of 120 passages from five StatPearls chapters and four journal articles indexed in PubMed, for the two leading classes and their differential diagnosis (TF-IDF over unigrams and bigrams, with class-specific query expansion). A language model combines the vote, the execution memory (past predictions of the same image, found by SHA-256), and the retrieved passages into the final decision and rationale. The language model never sees the image: the knowledge base describes conditions, not the image. A rationale that claims to see an image feature is flagged as a critical finding.
 
 The Reviewer Agent checks the rationale against an independent retrieval, using the tester's own rationale as the query, and against deterministic checks:
 
@@ -394,7 +400,7 @@ DermaMNIST is small enough for repeated experiments on standard deep-learning ha
 | **Data** | MedMNIST / DermaMNIST package; DermaMNIST-C/E from Zenodo | Version, splits, and checksums recorded; MD5 verified on download. |
 | **ML stack** | Python, PyTorch, torchvision, scikit-learn; CUDA, Apple MPS, or CPU | Training, fixed metrics, calibration, and tests. |
 | **Experiment registry** | JSON/JSONL records: per-run experiment record, run index, campaign record, promotion registry, prediction and review logs | Stores settings, seeds, metrics per epoch and per class, checkpoints, agent actions, human decisions, and stop or failure reasons. |
-| **Agent layer** | LangGraph; tool-calling LLM through a `provider:model` string (local Ollama, Anthropic, or OpenRouter) | Each agent has a separate prompt, tool list, and structured input and output schema; deterministic fallback without an LLM. |
+| **Agent layer** | LangGraph; LLM through a `provider:model` string (local Ollama, Anthropic, OpenAI, or any OpenAI-compatible service such as OpenRouter, Groq, or LM Studio) | Each agent has a separate prompt, tool list, and structured input and output schema; deterministic fallback without an LLM. |
 | **Retrieval** | Curated clinical knowledge base (120 StatPearls/PubMed passages); training knowledge base (22 verified arXiv abstracts and project notes) | Provides cited lesion information to the Testing and Reviewer Agents and cited training knowledge to the Training Agent. |
 | **Interface** | Local web platform (standard-library HTTP server, bound to 127.0.0.1) | Shows the agent graph, trace, training curves, LLM context, and the human-decision dialog. |
 | **Version control** | Git repository; model weights as release assets | Links code versions to accepted models and reports. |
@@ -403,8 +409,8 @@ DermaMNIST is small enough for repeated experiments on standard deep-learning ha
 
 | Component | Status |
 | --- | --- |
-| Orchestrator, Testing, Reviewer, and Training Agents with human interrupts | Implemented and verified end to end with the deterministic policy and with a local LLM |
-| Web platform (prediction, training campaigns, explainability windows) | Implemented and verified |
+| Orchestrator, Testing, Reviewer, Training, and Models Agents with human interrupts | Implemented and verified end to end with the deterministic policy and with a local LLM |
+| Web platform (prediction, training campaigns, questions, model metrics and ROC curves, test evaluation, explainability windows, language-model provider management) | Implemented and verified |
 | Classifiers: FPViT and three CNNs at 28 px; FPViT at 224 px | Implemented; 2 of 6 ablation runs at 224 px on DermaMNIST-C completed (pretrained, seeds 42 and 43); scratch runs and seed 44 open |
 | Metrics (accuracy, macro-F1, balanced accuracy, macro AUROC, per-class, confusion matrix) | Implemented |
 | Promotion gate and promotion registry | Implemented on the common DermaMNIST-C validation set for 28 and 224 px models, with a command-line gate for runs trained outside the agent |

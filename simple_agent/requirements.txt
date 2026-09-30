@@ -1,9 +1,0 @@
-# Agent-only dependencies. The training pipeline's own deps stay in
-# ../requirements.txt and are unchanged.
-langgraph>=0.6
-langchain-core>=0.3
-
-# --- one of these, depending on which model you run the agent on ------------
-langchain-anthropic>=0.3     # anthropic:claude-opus-5   (default)
-langchain-ollama>=0.2        # ollama:qwen3.6            (local)
-langchain-openai>=0.3        # openrouter:<any model id> (and openai:)
