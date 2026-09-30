@@ -1,1 +1,0 @@
-# DermaMNIST-agentic_project

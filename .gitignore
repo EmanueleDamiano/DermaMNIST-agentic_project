@@ -3,26 +3,21 @@
 __pycache__/
 *.pyc
 .DS_Store
-.deepeval/
 
-# earlier Colab pipeline: kept locally, not published
-legacy_model_training_and_testing/
+# API keys saved from the platform: local to this machine
+system/config/secrets.json
 
-# checkpoints and run outputs (too large for git, or local to this machine)
+# local editor / agent settings
+.claude/
+.vscode/
+
+# created while the system runs
+input/uploads/
+output/
+model/promoted/
+# DermaMNIST and DermaMNIST-C/E, downloaded on first use
+database/dermamnist/
+
+# checkpoints are large: only the shipped baseline is kept
 *.pt
-*.zip
-runs/
-runs_agent/
-runs_train/
-runs_predict/
-runs_224/
-trained_models_224/
-models_promoted/
-
-# ...except ONE model, so that a fresh clone can run the whole system:
-# baseline_paper (FPViT, paper hyperparameters, val balanced acc 0.533, 65 MB)
-runs test solo training pyramid/*
-!runs test solo training pyramid/baseline_paper/
-runs test solo training pyramid/baseline_paper/*
-!runs test solo training pyramid/baseline_paper/best_model.pt
-!runs test solo training pyramid/baseline_paper/val_dermamnist_c.json
+!model/baseline/baseline_paper/best_model.pt

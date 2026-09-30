@@ -1,4 +1,4 @@
-# --- training and models ----------------------------------------------------
+# --- models, data and training ------------------------------------------------
 torch>=2.1
 torchvision>=0.16
 medmnist>=3.0
@@ -7,13 +7,15 @@ numpy>=1.24
 tqdm>=4.65
 pillow>=10.0
 
-# --- agents (testing, reviewer, orchestrator, training) and platform ---------
+# --- agents (orchestrator, testing, reviewer, training) and platform ----------
 langgraph>=1.0
 langchain-core>=1.0
 pydantic>=2.0
 certifi                      # verified TLS for train_agent.build_kb (macOS python.org builds)
 
-# --- one LLM provider, depending on the model you run the agents on ---------
-langchain-ollama>=1.0        # ollama:qwen3.6            (local)
-langchain-anthropic>=1.0     # claude-sonnet-5 / anthropic:...
-# langchain-openai>=1.0      # openrouter:<model id> / openai:...
+# --- language model providers (see config/llm.json) ----------------------------
+# All three are light; keep the ones you use. Without any provider the agents
+# run on their rule-based fallbacks.
+langchain-anthropic>=1.0     # kind "anthropic": Claude models
+langchain-ollama>=1.0        # kind "ollama": local models served by `ollama serve`
+langchain-openai>=1.0        # kind "openai": OpenAI and every OpenAI-compatible API
